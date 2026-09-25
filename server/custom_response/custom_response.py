@@ -15,7 +15,7 @@
 # Client ←────────────────────
 
 from  fastapi.responses import JSONResponse 
-def custom_response(additional_response:dict,message:str,status_code:int):
+def custom_response(status_code:int,message:str,additional_response:dict):
     return JSONResponse(
         status_code=status_code,
         content={
