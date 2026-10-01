@@ -1,3 +1,3 @@
+from Services.payment_service import create_payment_service
 def create_payment(user_id,event_id):
-    print("creating payment for event_id:",event_id," and user_id:",user_id)
-    return {"message":f"creating payment for event_id:{event_id} and user_id:{user_id}"}
+    return create_payment_service(user_id,event_id)
