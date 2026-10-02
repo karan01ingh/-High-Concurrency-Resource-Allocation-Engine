@@ -1,7 +1,16 @@
+from fastapi import Request
 from Services.user_service import get_user_by_id_service,delete_user_service,get_user_at_event_service,update_user_service,create_user_service,get_all_users_service
+
 # used by admin only
-def get_all_users():
-    return get_all_users_service()
+async def get_all_users(request:Request):
+    body= await request.json()
+    search_value = body.get("search_value")
+    filter_value = body.get("filter_value")
+    order_col = body.get("order_col")
+    order_col_dir = body.get("order_col_dir")
+    limit = body.get("limit")
+    offset = body.get("offset")
+    return await get_all_users_service(search_value,filter_value,order_col,order_col_dir,limit,offset)
 
 # used to get user by id
 def get_user_by_id(user_id):

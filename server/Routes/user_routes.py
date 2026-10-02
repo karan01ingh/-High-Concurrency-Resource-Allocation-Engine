@@ -1,11 +1,11 @@
-from fastapi import APIRouter
+from fastapi import APIRouter,Request
 from Controllers.user_controller import get_all_users, get_user_by_id, delete_user, get_user_at_event, update_user,create_user
 
 router=APIRouter()
 
-@router.get("/")
-def get_user_route():
-    return get_all_users()
+@router.post("/all")
+async def get_user_route(Request:Request):
+    return await get_all_users(Request)
 
 @router.get("/{user_id}")
 def get_user_by_id_route(user_id:int):

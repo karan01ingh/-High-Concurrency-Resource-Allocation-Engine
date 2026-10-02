@@ -1,9 +1,15 @@
+from DB.dbConnection import pool
+from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from DB.db import DB   
-from custom_response.custom_response import custom_response
 from Routes import booking_routes,event_routes,payment_routes,refund_routes,user_routes
+
+@asynccontextmanager
+async def lifespan(app):
+    await pool.open()
+    yield
+    await pool.close()
 print("FastAPI app started")
-app=FastAPI()
+app=FastAPI(lifespan=lifespan)
 print("FastAPI app created")
 
 app.include_router(user_routes.router,prefix="/users")
