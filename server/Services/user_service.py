@@ -16,12 +16,58 @@ def get_user_at_event_service(event_id):
     print("getting user at event with id:", event_id)
     return {"message": f"getting user at event with id: {event_id}"}
 
-def update_user_service(user_id, user_data):
-    print("Updating user with id:", user_id)
-    print("User data:", user_data)
-    return {"message": f"Updating user with id: {user_id}", "user_data": user_data}
+async def update_user_service(user_id, user_data):
+    try:
+        if user_id is None:
+            return custom_response(
+                status_code=400,
+                message="User ID is required for updating user",
+                additional_response={"error": "User ID is missing"}
+            )
+        print("Updating user with id:", user_data)
+        print("Username:", user_data.get("username"))
+        print("Email:", user_data.get("email"))
+        print("Phone Contact:", user_data.get("phonecontact"))
+        if user_data is None:
+            return custom_response(
+                status_code=400,
+                message="User data is required for updating user",
+                additional_response={"error": "User data is missing"}
+            )
+        if user_data.get("username") is None or user_data.get("username") == "" or user_data.get("email") is None or user_data.get("email") == "" or user_data.get("phonecontact") is None or user_data.get("phonecontact") == "":
+            return custom_response(
+                status_code=400,
+                message="Username, email, and phone contact are required for updating user",
+                additional_response={"error": "Username, email, or phone contact is missing"}
+            )
+        
+        base_query="""UPDATE users SET username=%s,email=%s, phonecontact=%s, updated_at=NOW() WHERE userid=%s """
+        params=(user_data.get("username"),user_data.get("email"),user_data.get("phonecontact"),user_id)
+        result=await db.get_many("SELECT * FROM users WHERE userid=%s", (user_id,))
+        if result is None or len(result) == 0:
+            return custom_response(
+                status_code=404,
+                message="User not found",
+                additional_response={"error": f"No user found with id: {user_id}"}
+            )
+        await db.modify(base_query,params)
+        return custom_response(
+            status_code=200,
+            message="Successfully updated user",
+            additional_response={
+                "data":user_data 
+            }
+        )
+    except Exception as e:
+        print("Error in update_user_service:", str(e))
+        traceback.print_exc()
+        return custom_response(
+            status_code=400,
+            message="Error in update_user_service",
+            additional_response={"error": str(e)}
+        )
 
-def create_user_service(user_data):
+async def create_user_service(user_data):
     print("Creating user")
     print("User data:", user_data)
     return {"message": f"Creating user", "user_data": user_data}

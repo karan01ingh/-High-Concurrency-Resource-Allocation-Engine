@@ -18,10 +18,10 @@ def delete_user_route(user_id:int):
 @router.get("/users_at_events/{event_id}")
 def get_user_at_event_route(event_id:int):
     return get_user_at_event(event_id)
-
-@router.put("/{user_id}")
-def update_user_route(user_id:int,user_data:dict):
-    return update_user(user_id,user_data)
+    
+@router.patch("/{user_id}")
+async def update_user_route(request:Request, user_id:int):
+    return await update_user(request, user_id)
 
 @router.post("/")
 def create_user_route(user_data:dict):

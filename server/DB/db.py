@@ -23,12 +23,12 @@ class DB:
     
             
     # # execute update and delete queries both and return no result
-    # def modify(self,query,params=None):
-    #     # actually getting a connection from the pool and executing the query
-    #     with self.get_connection() as connection:
-    #         with connection.cursor() as cursor:
-    #             cursor.execute(query,params)
-    
+    async def modify(self,query,params=None):
+        # actually getting a connection from the pool and executing the query
+        async with self.get_connection() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(query,params)
+
    
             
         
