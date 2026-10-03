@@ -4,17 +4,32 @@ from datetime import date
 import traceback
 db=DB()
 
-def get_user_by_id_service(user_id):
-    print("Hello from user service with id:", user_id)
-    return {"message": f"Hello from user service with id: {user_id}"}
-
-def delete_user_service(user_id):
-    print("Deleting user with id:", user_id)
-    return {"message": f"Deleting user with id: {user_id}"}
-
-def get_user_at_event_service(event_id):
-    print("getting user at event with id:", event_id)
-    return {"message": f"getting user at event with id: {event_id}"}
+async def get_user_by_id_service(user_id):
+    try:
+        base_query="""SELECT CAST(userid AS TEXT) as userid,username,email,CAST(phonecontact AS TEXT) as phonecontact,to_char(created_at AT TIME ZONE 'Asia/Kolkata','YYYY-MM-DD HH12:MIAM') as created_at FROM users WHERE userid=%s"""
+        params=(user_id,)
+        result=await db.get_one(base_query,params)
+        if result is None or len(result) == 0:
+            return custom_response(
+                status_code=404,
+                message="User not Found",
+                additional_response={"error": f"No user found with id: {user_id}"}
+            )
+        return custom_response(
+            status_code=200,
+            message="Successfully fetched user",
+            additional_response={
+                "data":result
+            }
+        )
+    except Exception as e:
+        print("Error in get_user_by_id_service:", str(e))
+        traceback.print_exc()
+        return custom_response(
+            status_code=400,
+            message="Error in get_user_by_id_service",
+            additional_response={"error": str(e)}
+        )
 
 async def update_user_service(user_id, user_data):
     try:
@@ -94,18 +109,18 @@ async def get_all_users_service(search_value,filter_value,order_col,order_col_di
         
         where_str=f" WHERE {'AND'.join(where)} " if where else ""
         
-        order_str=f" ORDER BY {order_col} {order_col_dir} " if order_col and order_col_dir else " ORDER BY created_at DESC "
+        order_str=f" ORDER BY {order_col} {order_col_dir} " if order_col and order_col_dir and order_col != "" and order_col_dir != "" else " ORDER BY created_at DESC "
         total_rows=f"SELECT COUNT(userid) as FULL_COUNT FROM users {where_str}"
         base_query=f"SELECT CAST(userid AS TEXT) as userid,username,email,phonecontact,to_char(created_at AT TIME ZONE 'Asia/Kolkata','YYYY-MM-DD HH12:MIAM') as created_at,to_char(updated_at AT TIME ZONE 'Asia/Kolkata','YYYY-MM-DD HH12:MIAM') as updated_at FROM users {where_str} {order_str} LIMIT {limit} OFFSET {offset}"
         total_count=await db.get_many(total_rows,None)
-        results=await db.get_many(base_query,None)
-        print("results:",results)
+        result=await db.get_many(base_query,None)
+        print("results:",result)
         
         return custom_response(
             status_code=200,
             message="Successfully fetched all users",
             additional_response={   
-                "data": results,
+                "data": result,
                 "total_count": total_count[0][0] if total_count else 0
             }
         )

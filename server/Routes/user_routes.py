@@ -4,12 +4,12 @@ from Controllers.user_controller import get_all_users, get_user_by_id, delete_us
 router=APIRouter()
 
 @router.post("/all")
-async def get_user_route(Request:Request):
-    return await get_all_users(Request)
+async def get_user_route(request:Request):
+    return await get_all_users(request)
 
 @router.get("/{user_id}")
-def get_user_by_id_route(user_id:int):
-    return get_user_by_id(user_id)
+async def get_user_by_id_route(user_id:int):
+    return await get_user_by_id(user_id)
 
 @router.delete("/{user_id}")
 def delete_user_route(user_id:int):

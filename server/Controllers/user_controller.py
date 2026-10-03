@@ -3,7 +3,7 @@ from Services.user_service import get_user_by_id_service,delete_user_service,get
 
 # used by admin only
 async def get_all_users(request:Request):
-    body= await request.json()
+    body = await request.json()
     search_value = body.get("search_value")
     filter_value = body.get("filter_value")
     order_col = body.get("order_col")
@@ -13,8 +13,8 @@ async def get_all_users(request:Request):
     return await get_all_users_service(search_value,filter_value,order_col,order_col_dir,limit,offset)
 
 # used to get user by id
-def get_user_by_id(user_id):
-    return get_user_by_id_service(user_id)
+async def get_user_by_id(user_id:int):
+    return await get_user_by_id_service(user_id)
 
 # used to delete user by id 
 def delete_user(user_id):
