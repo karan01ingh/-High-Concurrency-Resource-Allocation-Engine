@@ -28,6 +28,7 @@ class DB:
         async with self.get_connection() as connection:
             async with connection.cursor() as cursor:
                 await cursor.execute(query,params)
+                return await cursor.fetchall()
 
    
             

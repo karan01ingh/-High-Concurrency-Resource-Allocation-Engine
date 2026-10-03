@@ -5,7 +5,8 @@ import traceback
 
 db = DB()
 
-# have to send off set and limit from the front end for pagination , we r not adding conditiion for this 
+# have to send off set and limit from the front end for pagination , we r not adding conditiion for this
+
 
 async def get_user_by_id_service(user_id):
     try:
@@ -45,19 +46,16 @@ async def update_user_service(user_id, user_data):
         print("Username:", user_data.get("username"))
         print("Email:", user_data.get("email"))
         print("Phone Contact:", user_data.get("phonecontact"))
-        if user_data is None:
+        if not user_data:
             return custom_response(
                 status_code=400,
                 message="User data is required for updating user",
                 additional_response={"error": "User data is missing"},
             )
         if (
-            user_data.get("username") is None
-            or user_data.get("username") == ""
-            or user_data.get("email") is None
-            or user_data.get("email") == ""
-            or user_data.get("phonecontact") is None
-            or user_data.get("phonecontact") == ""
+            not user_data.get("username")
+            or not user_data.get("email")
+            or not user_data.get("phonecontact")
         ):
             return custom_response(
                 status_code=400,
@@ -67,21 +65,19 @@ async def update_user_service(user_id, user_data):
                 },
             )
 
-        base_query = """UPDATE users SET username=%s,email=%s, phonecontact=%s, updated_at=NOW() WHERE userid=%s """
+        base_query = """UPDATE users SET username=%s,email=%s, phonecontact=%s, updated_at=NOW() WHERE userid=%s  RETURNING userid"""
         params = (
             user_data.get("username"),
             user_data.get("email"),
             user_data.get("phonecontact"),
             user_id,
         )
-        result = await db.get_many("SELECT * FROM users WHERE userid=%s", (user_id,))
-        if result is None or len(result) == 0:
+        result = await db.modify(base_query, params)
+        if not result:
             return custom_response(
-                status_code=404,
-                message="User not found",
-                additional_response={"error": f"No user found with id: {user_id}"},
+                status_code=404, message="Invalid userid", additional_response={}
             )
-        await db.modify(base_query, params)
+
         return custom_response(
             status_code=200,
             message="Successfully updated user",
@@ -135,15 +131,26 @@ async def get_all_users_service(
 
         order_str = (
             f" ORDER BY {order_col} {order_col_dir} "
-            if order_col and order_col_dir and order_col_dir.upper() in ['ASC', 'DESC'] and order_col.lower() in ['userid', 'username', 'email', 'phonecontact', 'created_at', 'updated_at']
+            if order_col
+            and order_col_dir
+            and order_col_dir.upper() in ["ASC", "DESC"]
+            and order_col.lower()
+            in [
+                "userid",
+                "username",
+                "email",
+                "phonecontact",
+                "created_at",
+                "updated_at",
+            ]
             else " ORDER BY username DESC "
         )
-        
+
         total_rows = f"SELECT COUNT(userid) as FULL_COUNT FROM users {where_str}"
-        
+
         base_query = f"SELECT CAST(userid AS TEXT) as userid,username,email,phonecontact,to_char(created_at AT TIME ZONE 'Asia/Kolkata','YYYY-MM-DD HH12:MIAM') as created_at,to_char(updated_at AT TIME ZONE 'Asia/Kolkata','YYYY-MM-DD HH12:MIAM') as updated_at FROM users {where_str} {order_str} LIMIT {limit} OFFSET {offset}"
         total_count = await db.get_many(total_rows, None)
-        print("total_count:",total_count)
+        print("total_count:", total_count)
         result = await db.get_many(base_query, None)
         print("results:", result)
 
