@@ -24,8 +24,10 @@ async def get_event_by_event_id(request: Request, event_id: int):
 
 
 # used to create an event with event_id and event_data
-def create_event(event_data: dict):
-    return create_event_service(event_data)
+async def create_event(request:Request,user_id):
+    print("in controller")
+    body = await request.json()
+    return await create_event_service(user_id,body.get("event_data"))
 
 
 # used to update an event with event_id and event_data
@@ -48,7 +50,7 @@ async def get_all_events(request: Request, user_id: int):
     order_col_dir = body.get("order_col_dir")
     limit = body.get("limit")
     offset = body.get("offset")
-    return get_all_events_service(
+    return await get_all_events_service(
         user_id, search_value, filter_value, order_col, order_col_dir, limit, offset
     )
 

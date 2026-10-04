@@ -12,8 +12,8 @@ router = APIRouter()
 
 
 @router.post("/all_events/{user_id}")
-def get_all_events_route(user_id: int):
-    return get_all_events(user_id)
+async def get_all_events_route(request:Request,user_id: int):
+    return await get_all_events(request,user_id)
 
 
 @router.get("/{event_id}")
@@ -21,9 +21,11 @@ async def get_event_by_event_id_route(request: Request, event_id: int):
     return await get_event_by_event_id(request, event_id)
 
 
-@router.post("create-post/")
-def create_event_route(event_data: dict):
-    return create_event(event_data)
+@router.post("/create-event/{user_id}")
+async def create_event_route(request:Request,user_id):
+    print("in route")
+    return await create_event(request,user_id)
+
 
 
 @router.put("/{event_id}")

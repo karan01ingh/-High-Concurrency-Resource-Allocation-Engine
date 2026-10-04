@@ -1,7 +1,7 @@
 from custom_response.custom_response import custom_response
 import traceback
 from DB.db import DB
-from datetime import date
+from datetime import date,datetime
 
 db = DB()
 
@@ -32,14 +32,76 @@ async def get_event_by_event_id_service(event_id):
         )
 
 
-def create_event_service(user_id, event_id, event_data):
+async def create_event_service(user_id, event_data):
     try:
+        print("in service")
         if not event_data:
             return custom_response(
-                status_code=404, message="Event data is missing", additional_response={}
+                status_code=404, message="Event data is missing", additional_response={"error":"Please provide event data"}
             )
+        if not event_data.get("event_date") or not event_data.get("event_time") or not event_data.get("event_name") or not event_data.get("event_capacity") or not event_data.get("event_ticket_price") or not event_data.get("event_place") or not event_data.get("event_description"):
+            return custom_response(
+                status_code=404, message="Mandatory data is missing", additional_response={"error":"Please provide all the data fields"}
+            )
+        try:
+            event_date = datetime.strptime(
+                event_data.get("event_date"),
+                "%Y-%m-%d"
+            ).date()
+            if event_date<date.today():
+                return custom_response(
+                    status_code=404, message="Invaid event date", additional_response={"error":"Please provide valid date"}
+                )
+        except ValueError:
+            return custom_response(
+                status_code=400,
+                message="Invalid event date",
+                additional_response={
+                    "error": "Event date must be in YYYY-MM-DD format"
+                }
+            )
+            
+        try:
+            event_time = datetime.strptime(
+                event_data.get("event_time"),
+                "%H:%M"
+            ).time()
+        except ValueError:
+            return custom_response(
+                status_code=400,
+                message="Invalid event time",
+                additional_response={
+                    "error": "Event time must be in HH:MM format format"
+                }
+            )
+        if len(event_data.get("event_name"))>200:
+            return custom_response(
+                status_code=400,
+                message="Description should be maximum 200 characters",
+                additional_response={
+                    "error": "please prvide description max 200 characters"
+                }
+            )
+        
+        base_query="INSERT INTO events (event_date,event_time,event_name,event_description,event_capacity,event_ticket_price,event_place,event_created_by) values (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING eventid"
+        params=(event_date,event_time,event_data.get("event_name"),event_data.get("event_description"),event_data.get("event_capacity"),event_data.get("event_ticket_price"),event_data.get("event_place"),user_id)
+        results =await db.modify(base_query,params)
+        if not results:
+            return custom_response(
+                status_code=400,
+                message="Event not created ! try after sometime",
+                additional_response={"Error":"Please try after sometime"}
+            )
+        return custom_response(
+            status_code=400,
+            message="Event created successfully",
+            additional_response={"Error":"Event created successfully",
+                                 "data":results
+            }
+        )
     except Exception as e:
         print("Error in create_event_service", str(e))
+        traceback.print_exc()
         return custom_response(
             status_code=400,
             message="Error in creating a event",
@@ -136,7 +198,7 @@ async def get_all_events_service(
             0 if not filter_value.get("from_price") else filter_value.get("from_price")
         )
 
-        where.append(f" event_date BETWEEN {from_date} AND {to_date}")
+        where.append(f" event_date BETWEEN '{from_date}' AND '{to_date}'")
         where.append(f" event_ticket_price BETWEEN {from_price} AND {to_price}")
         where.append(f" event_created_by = {user_id}")
         where_str = f" WHERE {' AND '.join(where)}" if where else ""
