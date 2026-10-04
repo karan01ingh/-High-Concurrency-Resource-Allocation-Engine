@@ -1,35 +1,31 @@
 from .dbConnection import pool
 
+
 class DB:
     # provide connections from the pool object to the methods that need to execute queries
     def get_connection(self):
         return pool.connection()
-    
+
     # execute queries and return many results
-    async def get_many(self,query,params=None):
-        # actually getting a connection from the pool and executing the query
-        async with self.get_connection() as connection:
-            async with connection.cursor () as cursor:
-                await cursor.execute(query,params)
-                return await cursor.fetchall()
-            
-    # execute queries and return one result
-    async def get_one(self,query,params=None):
+    async def get_many(self, query, params=None):
         # actually getting a connection from the pool and executing the query
         async with self.get_connection() as connection:
             async with connection.cursor() as cursor:
-                await cursor.execute(query,params)
-                return await cursor.fetchone()
-    
-            
-    # # execute update and delete queries both and return no result
-    async def modify(self,query,params=None):
-        # actually getting a connection from the pool and executing the query
-        async with self.get_connection() as connection:
-            async with connection.cursor() as cursor:
-                await cursor.execute(query,params)
+                await cursor.execute(query, params)
                 return await cursor.fetchall()
 
-   
-            
-        
+    # execute queries and return one result
+    async def get_one(self, query, params=None):
+        # actually getting a connection from the pool and executing the query
+        async with self.get_connection() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(query, params)
+                return await cursor.fetchone()
+
+    # # execute update and delete queries both and return no result
+    async def modify(self, query, params=None):
+        # actually getting a connection from the pool and executing the query
+        async with self.get_connection() as connection:
+            async with connection.cursor() as cursor:
+                await cursor.execute(query, params)
+                return await cursor.fetchall()

@@ -33,5 +33,6 @@ async def update_user(request: Request, user_id: int):
 
 
 # used to craete a user with user_id and user_data
-def create_user(user_data):
-    return create_user_service(user_data)
+async def create_user(request:Request,user_data):
+    body = await request.json()
+    return await create_user_service(body.get("user_data"))

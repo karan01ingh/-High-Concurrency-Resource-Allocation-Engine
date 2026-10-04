@@ -2,6 +2,9 @@ from DB.db import DB
 from custom_response.custom_response import custom_response
 from datetime import date
 import traceback
+import psycopg
+import bcrypt
+import re
 
 db = DB()
 
@@ -29,8 +32,8 @@ async def get_user_by_id_service(user_id):
         traceback.print_exc()
         return custom_response(
             status_code=400,
-            message="Error in get_user_by_id_service",
-            additional_response={"error": str(e)},
+            message="Internal Error in get_user_by_id_service",
+            additional_response={"Error": str(e)},
         )
 
 
@@ -88,15 +91,112 @@ async def update_user_service(user_id, user_data):
         traceback.print_exc()
         return custom_response(
             status_code=400,
-            message="Error in update_user_service",
-            additional_response={"error": str(e)},
+            message="Internal Error in update_user_service",
+            additional_response={"Error": str(e)},
         )
 
 
 async def create_user_service(user_data):
-    print("Creating user")
-    print("User data:", user_data)
-    return {"message": f"Creating user", "user_data": user_data}
+    try:
+        if not user_data:
+            return custom_response(
+                status_code=404,
+                message="User data is missing",
+                additional_response={"error": "Please provide User data"},
+            )
+        if (
+            not user_data.get("username")
+            or not user_data.get("role")
+            or not user_data.get("email")
+            or not user_data.get("phonecontact")
+            or not user_data.get("password")
+        ):
+            return custom_response(
+                status_code=404,
+                message="Mandatory Fields are missing",
+                additional_response={"error": " Please provide all mandatory fields"},
+            )
+
+        if user_data.get("role") not in ("admin", "user", "organizer"):
+            return custom_response(
+                status_code=400,
+                message="Invalid Role",
+                additional_response={"error": "Invalid Role"},
+            )
+        if not re.fullmatch(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", user_data.get("email")):
+            return custom_response(
+                status_code=400,
+                message="Invalid email",
+                additional_response={"error": "Please provide a valid email address"},
+            )
+        if not re.fullmatch(r"[6-9]\d{9}", user_data.get("phonecontact")):
+            return custom_response(
+                status_code=400,
+                message="Invalid phone number",
+                additional_response={
+                    "error": "Please provide a valid 10-digit Indian mobile number"
+                },
+            )
+        if len(user_data.get("password")) < 8:
+            return custom_response(
+                status_code=400,
+                message="Password length is smaller then 8 ",
+                additional_response={
+                    "error": " Password must be at least 8 characters long"
+                },
+            )
+        if not re.search(r"[A-Za-z]", user_data.get("password")) or not re.search(
+            r"\d", user_data.get("password")
+        ):
+            return custom_response(
+                status_code=400,
+                message="Invalid password",
+                additional_response={
+                    "error": "Password must contain at least one letter and one number"
+                },
+            )
+        password = user_data.get("password")
+
+        hashed_password = bcrypt.hashpw(
+            password.encode("utf-8"), bcrypt.gensalt()
+        ).decode("utf-8")
+        base_query = f"INSERT INTO users (username,role,email,phonecontact,password) values (%s,%s,%s,%s,%s) RETURNING userid"
+        params = (
+            user_data.get("username"),
+            user_data.get("role"),
+            user_data.get("email"),
+            user_data.get("phonecontact"),
+            hashed_password,
+        )
+        result = await db.modify(base_query, params)
+        if not result:
+            return custom_response(
+                status_code=500,
+                message="Internal server error in creating user",
+                additional_response={"error": "Try after sometime"},
+            )
+        return custom_response(
+            status_code=201,
+            message="User created successfully",
+            additional_response={"data": result},
+        )
+
+    except psycopg.errors.UniqueViolation:
+        return custom_response(
+            status_code=409,
+            message="User already exists",
+            additional_response={
+                "error": "Email or phone number is already registered"
+            },
+        )
+    except Exception as e:
+        print("Error in the create user service:", str(e))
+        traceback.print_exc()
+        return custom_response(
+            status_code=400,
+            message="Internal Error in the create_user_service",
+            additional_response={"Error": str(e)},
+        )
 
 
 async def get_all_users_service(
@@ -167,6 +267,6 @@ async def get_all_users_service(
         traceback.print_exc()
         return custom_response(
             status_code=400,
-            message="Error in get_all_users_service",
-            additional_response={"error": str(e)},
+            message="Internal Error in get_all_users_service",
+            additional_response={"Error": str(e)},
         )
