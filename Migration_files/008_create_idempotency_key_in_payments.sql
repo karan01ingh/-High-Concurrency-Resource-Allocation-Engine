@@ -1,0 +1,2 @@
+ALTER TABLE payments
+ADD COLUMN idempotency_key VARCHAR(100) NOT NULL UNIQUE;
