@@ -1,5 +1,5 @@
 from .dbConnection import pool
-
+from contextlib import asynccontextmanager
 
 class DB:
     # provide connections from the pool object to the methods that need to execute queries
@@ -29,3 +29,9 @@ class DB:
             async with connection.cursor() as cursor:
                 await cursor.execute(query, params)
                 return await cursor.fetchall()
+            
+    @asynccontextmanager
+    async def transaction(self):
+        async with self.get_connection() as connection:
+            async with connection.transaction():
+                yield connection
