@@ -16,10 +16,16 @@ async def create_payment_service(user_id,event_id,event_name,idempotency_key,amo
         if result:
             return {"data":result[0],"message":"Successfully created a payment","success":True}
         return {"data":None,"message":"payment is not created","success":False}
+    except psycopg.errors.ForeignKeyViolation:
+        return {
+            "message": "Invalid event ID or user ID. The referenced record does not exist.",
+            "data": None,
+            "success": False
+        }
     except psycopg.errors.UniqueViolation:
         return {
             "message":"Payment already exists for this idempotency key",
-            "data":"",
+            "data":None,
             "success":False
         }
     except Exception as e:
