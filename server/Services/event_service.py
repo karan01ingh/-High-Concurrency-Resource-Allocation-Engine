@@ -31,7 +31,7 @@ async def get_event_by_event_id_service(event_id):
             additional_response={"error": str(e)},
         )
 
-
+# need to use a idempotency key here also 
 async def create_event_service(user_id, event_data):
     try:
         print("in service")
@@ -83,7 +83,7 @@ async def create_event_service(user_id, event_data):
                 }
             )
         
-        base_query="INSERT INTO events (event_date,event_time,event_name,event_description,event_capacity,event_ticket_price,event_place,event_created_by) values (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING eventid"
+        base_query="INSERT INTO events (event_date,event_time,event_name,event_description,event_capacity,event_ticket_price,event_place,event_created_by) values (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *"
         params=(event_date,event_time,event_data.get("event_name"),event_data.get("event_description"),event_data.get("event_capacity"),event_data.get("event_ticket_price"),event_data.get("event_place"),user_id)
         results =await db.modify(base_query,params)
         if not results:
