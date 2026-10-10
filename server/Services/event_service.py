@@ -2,6 +2,8 @@ from custom_response.custom_response import custom_response
 import traceback
 from DB.db import DB
 from datetime import date,datetime
+from Redis.redis_client import redis_client
+import psycopg
 
 db = DB()
 
@@ -39,7 +41,7 @@ async def create_event_service(user_id, event_data):
             return custom_response(
                 status_code=404, message="Event data is missing", additional_response={"error":"Please provide event data"}
             )
-        if not event_data.get("event_date") or not event_data.get("event_time") or not event_data.get("event_name") or not event_data.get("event_capacity") or not event_data.get("event_ticket_price") or not event_data.get("event_place") or not event_data.get("event_description"):
+        if not event_data.get("event_date") or not event_data.get("event_time") or not event_data.get("event_name") or not event_data.get("event_capacity") or not event_data.get("event_ticket_price") or not event_data.get("event_place") or not event_data.get("event_description") or not event_data.get("idempotency_key"):
             return custom_response(
                 status_code=404, message="Mandatory data is missing", additional_response={"error":"Please provide all the data fields"}
             )
@@ -83,8 +85,8 @@ async def create_event_service(user_id, event_data):
                 }
             )
         
-        base_query="INSERT INTO events (event_date,event_time,event_name,event_description,event_capacity,event_ticket_price,event_place,event_created_by) values (%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *"
-        params=(event_date,event_time,event_data.get("event_name"),event_data.get("event_description"),event_data.get("event_capacity"),event_data.get("event_ticket_price"),event_data.get("event_place"),user_id)
+        base_query="INSERT INTO events (event_date,event_time,event_name,event_description,event_capacity,event_ticket_price,event_place,event_created_by,idempotency_key) values (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *"
+        params=(event_date,event_time,event_data.get("event_name"),event_data.get("event_description"),event_data.get("event_capacity"),event_data.get("event_ticket_price"),event_data.get("event_place"),user_id,event_data.get("idempotency_key"))
         results =await db.modify(base_query,params)
         if not results:
             return custom_response(
@@ -92,13 +94,37 @@ async def create_event_service(user_id, event_data):
                 message="Event not created ! try after sometime",
                 additional_response={"Error":"Please try after sometime"}
             )
+        event = results[0]
+        event_id = event[0]
+        event_capacity = event[5]
+        event_ticket_sold = event[7]
+
+        tickets_left = event_capacity - event_ticket_sold
+        await redis_client.set(
+            f"event:{event_id}:tickets_left",
+            tickets_left,
+            ex=86400
+        )
         return custom_response(
             status_code=400,
             message="Event created successfully",
-            additional_response={"Error":"Event created successfully",
-                                 "data":results
+            additional_response={
+                "data":results
             }
         )
+    except psycopg.errors.ForeignKeyViolation:
+        return custom_response(
+            status_code=404,
+            message="Invalid userid",
+            additional_response={"data":None}
+        )
+    except psycopg.errors.UniqueViolation:
+        return custom_response(
+            status_code=404,
+            message="Event alreasy exist for the idempotency key",
+            additional_response={"data":None}
+        )
+
     except Exception as e:
         print("Error in create_event_service", str(e))
         traceback.print_exc()

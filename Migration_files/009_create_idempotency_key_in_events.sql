@@ -1,0 +1,2 @@
+ALTER TABLE events
+ADD COLUMN idempotency_key VARCHAR(100) NOT NULL UNIQUE;
