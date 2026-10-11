@@ -1,7 +1,7 @@
 from custom_response.custom_response import custom_response
 import traceback
 from DB.db import DB
-from datetime import date,datetime
+from datetime import date, datetime
 from Redis.redis_client import redis_client
 import psycopg
 
@@ -33,26 +33,41 @@ async def get_event_by_event_id_service(event_id):
             additional_response={"error": str(e)},
         )
 
-# need to use a idempotency key here also 
+
+# need to use a idempotency key here also
 async def create_event_service(user_id, event_data):
     try:
         print("in service")
         if not event_data:
             return custom_response(
-                status_code=404, message="Event data is missing", additional_response={"error":"Please provide event data"}
+                status_code=404,
+                message="Event data is missing",
+                additional_response={"error": "Please provide event data"},
             )
-        if not event_data.get("event_date") or not event_data.get("event_time") or not event_data.get("event_name") or not event_data.get("event_capacity") or not event_data.get("event_ticket_price") or not event_data.get("event_place") or not event_data.get("event_description") or not event_data.get("idempotency_key"):
+        if (
+            not event_data.get("event_date")
+            or not event_data.get("event_time")
+            or not event_data.get("event_name")
+            or not event_data.get("event_capacity")
+            or not event_data.get("event_ticket_price")
+            or not event_data.get("event_place")
+            or not event_data.get("event_description")
+            or not event_data.get("idempotency_key")
+        ):
             return custom_response(
-                status_code=404, message="Mandatory data is missing", additional_response={"error":"Please provide all the data fields"}
+                status_code=404,
+                message="Mandatory data is missing",
+                additional_response={"error": "Please provide all the data fields"},
             )
         try:
             event_date = datetime.strptime(
-                event_data.get("event_date"),
-                "%Y-%m-%d"
+                event_data.get("event_date"), "%Y-%m-%d"
             ).date()
-            if event_date<date.today():
+            if event_date < date.today():
                 return custom_response(
-                    status_code=404, message="Invaid event date", additional_response={"error":"Please provide valid date"}
+                    status_code=404,
+                    message="Invaid event date",
+                    additional_response={"error": "Please provide valid date"},
                 )
         except ValueError:
             return custom_response(
@@ -60,69 +75,74 @@ async def create_event_service(user_id, event_data):
                 message="Invalid event date",
                 additional_response={
                     "error": "Event date must be in YYYY-MM-DD format"
-                }
+                },
             )
-            
+
         try:
-            event_time = datetime.strptime(
-                event_data.get("event_time"),
-                "%H:%M"
-            ).time()
+            event_time = datetime.strptime(event_data.get("event_time"), "%H:%M").time()
         except ValueError:
             return custom_response(
                 status_code=400,
                 message="Invalid event time",
                 additional_response={
                     "error": "Event time must be in HH:MM format format"
-                }
+                },
             )
-        if len(event_data.get("event_name"))>200:
+        if len(event_data.get("event_name")) > 200:
             return custom_response(
                 status_code=400,
                 message="Description should be maximum 200 characters",
                 additional_response={
                     "error": "please prvide description max 200 characters"
-                }
+                },
             )
-        
-        base_query="INSERT INTO events (event_date,event_time,event_name,event_description,event_capacity,event_ticket_price,event_place,event_created_by,idempotency_key) values (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *"
-        params=(event_date,event_time,event_data.get("event_name"),event_data.get("event_description"),event_data.get("event_capacity"),event_data.get("event_ticket_price"),event_data.get("event_place"),user_id,event_data.get("idempotency_key"))
-        results =await db.modify(base_query,params)
+
+        base_query = "INSERT INTO events (event_date,event_time,event_name,event_description,event_capacity,event_ticket_price,event_place,event_created_by,idempotency_key) values (%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *"
+        params = (
+            event_date,
+            event_time,
+            event_data.get("event_name"),
+            event_data.get("event_description"),
+            event_data.get("event_capacity"),
+            event_data.get("event_ticket_price"),
+            event_data.get("event_place"),
+            user_id,
+            event_data.get("idempotency_key"),
+        )
+        results = await db.modify(base_query, params)
         if not results:
             return custom_response(
                 status_code=400,
                 message="Event not created ! try after sometime",
-                additional_response={"Error":"Please try after sometime"}
+                additional_response={"Error": "Please try after sometime"},
             )
         event = results[0]
         event_id = event[0]
         event_capacity = event[5]
         event_ticket_sold = event[7]
+        event_ticket_price = event[6]
 
         tickets_left = event_capacity - event_ticket_sold
+        await redis_client.set(f"event:{event_id}:tickets_left", tickets_left, ex=86400)
         await redis_client.set(
-            f"event:{event_id}:tickets_left",
-            tickets_left,
-            ex=86400
+            f"event:{event_id}:ticket_price", str(event_ticket_price), ex=86400
         )
         return custom_response(
-            status_code=400,
+            status_code=200,
             message="Event created successfully",
-            additional_response={
-                "data":results
-            }
+            additional_response={"data": results},
         )
     except psycopg.errors.ForeignKeyViolation:
         return custom_response(
             status_code=404,
             message="Invalid userid",
-            additional_response={"data":None}
+            additional_response={"data": None},
         )
     except psycopg.errors.UniqueViolation:
         return custom_response(
             status_code=404,
             message="Event alreasy exist for the idempotency key",
-            additional_response={"data":None}
+            additional_response={"data": None},
         )
 
     except Exception as e:

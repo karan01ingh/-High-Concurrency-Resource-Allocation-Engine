@@ -203,6 +203,8 @@ async def get_all_users_service(
     search_value, filter_value, order_col, order_col_dir, limit, offset
 ):
     try:
+        print("search:",search_value)
+        print("filter_value:",filter_value)
         # searching
         where = []
         if search_value:
