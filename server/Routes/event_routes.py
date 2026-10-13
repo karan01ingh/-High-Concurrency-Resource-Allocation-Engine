@@ -26,17 +26,9 @@ async def create_event_route(request:Request,user_id):
     print("in route")
     return await create_event(request,user_id)
 
-
-
 @router.put("/{event_id}")
 async def update_event_route(request: Request, event_id: int):
     return await update_event(request, event_id)
-
-
-@router.delete("/{event_id}")
-def delete_event_route(event_id: int):
-    return delete_event(event_id)
-
 
 @router.post("/")
 async def get_events_route(request: Request):

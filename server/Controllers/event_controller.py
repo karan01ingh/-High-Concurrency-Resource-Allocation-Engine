@@ -36,11 +36,6 @@ async def update_event(request: Request, event_id: int):
     return await update_event_service(event_id, body.get("event_data"))
 
 
-# used to delete an event with event_id
-def delete_event(event_id: int):
-    return delete_event_service(event_id)
-
-
 # used to get all event with a user id
 async def get_all_events(request: Request, user_id: int):
     body = await request.json()

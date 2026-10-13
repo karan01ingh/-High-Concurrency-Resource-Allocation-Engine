@@ -201,10 +201,6 @@ async def update_event_service(event_id, event_data):
         )
 
 
-def delete_event_service(event_id):
-    return {"message": f"deleting event with id: {event_id}"}
-
-
 async def get_all_events_service(
     user_id, search_value, filter_value, order_col, order_col_dir, limit, offset
 ):
