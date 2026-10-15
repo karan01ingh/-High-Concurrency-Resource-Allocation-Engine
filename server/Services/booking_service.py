@@ -9,37 +9,118 @@ from Redis.redis_client import reserve_tickets, release_tickets, redis_client
 db = DB()
 
 
-def cancel_booking_service(user_id, booking_id):
+async def cancel_booking_service(user_id, booking_id):
+    event_id = None
+    booking_count = None
+    print("service is printed")
     try:
-        # booking cancel -> events me ticket restore -> redis me b restore krni padegi -> refund hoga if user event date se phele krega-> if event date nikal chuki h to frontend pe koi button show nahi hoga and backend se b check lagega delete na hone ka 
-        booking_cancel_query="DELETE FROM bookings WHERE bookingid = %s RETURNING eventid,booking_count "
-        booking_params=(booking_id,)
-        count=0
-        eventid=None
-        ticket_restore_query="UPDATE events SET event_ticket_sold=(event_ticket_sold- %s) WHERE eventid=%s RETURNING event_date,event_ticket_price"
-        ticket_restore_params=(count,eventid)
-        event_date=None
-        event_ticket_price=None
-        if date.today()<event_date:
-            # then only refund is possible
-            refund_query="UPDATE users SET money_left = money_left + event_ticket_price WHERE userid= %s "
-            refund_params=(event_ticket_price,)
-        if date.today()>event_date:
-            # no cancelation can happended 
-        #at last update in the redis key ....
-        
-        return custom_response(
-            status_code=200,
-            message="Booking canceled successfully",
-            additional_response={"data":None,"message":"Booking canceled successfully"}
-        )
+        async with db.transaction() as connection:
+            async with connection.cursor() as cursor:
+
+                # 1. Fetch booking and event details
+                await cursor.execute(
+                    """
+                    SELECT b.eventid,
+                           b.booking_count,
+                           e.event_date,
+                           e.event_ticket_price,
+                           b.paymentid
+                    FROM booking b
+                    JOIN events e ON e.eventid = b.eventid
+                    WHERE b.bookingid = %s
+                      AND b.userid = %s
+                    FOR UPDATE OF b, e
+                    """,
+                    (booking_id, user_id)
+                )
+
+                booking = await cursor.fetchone()
+
+                if not booking:
+                    raise Exception("Booking not found")
+
+                event_id, booking_count, event_date, ticket_price, payment_id = booking
+
+                # 2. Allow cancellation only before the event date
+                if date.today() >= event_date:
+                    raise Exception(
+                        "Booking cannot be cancelled on or after the event date"
+                    )
+
+                # 3. Restore tickets in PostgreSQL
+                await cursor.execute(
+                    """
+                    UPDATE events
+                    SET event_ticket_sold = event_ticket_sold - %s
+                    WHERE eventid = %s
+                      AND event_ticket_sold >= %s
+                    RETURNING eventid
+                    """,
+                    (booking_count, event_id, booking_count)
+                )
+
+                if not await cursor.fetchone():
+                    raise Exception("Unable to restore event ticket count")
+
+                # 4. Refund the user's wallet
+                refund_amount = ticket_price * booking_count
+
+                await cursor.execute(
+                    """
+                    UPDATE users
+                    SET money_left = money_left + %s
+                    WHERE userid = %s
+                    RETURNING userid
+                    """,
+                    (refund_amount, user_id)
+                )
+
+                if not await cursor.fetchone():
+                    raise Exception("Unable to refund user")
+
+                # 5. Delete the booking
+                await cursor.execute(
+                    """
+                    DELETE FROM booking
+                    WHERE bookingid = %s
+                      AND userid = %s
+                    RETURNING bookingid
+                    """,
+                    (booking_id, user_id)
+                )
+
+                if not await cursor.fetchone():
+                    raise Exception("Booking cancellation failed")
+                
+                # Delete Payment
+                await cursor.execute("""
+                    DELETE FROM payments
+                    WHERE paymentid=%s
+                    RETURNING paymentid
+                """,(payment_id,))
+                if not await cursor.fetchone():
+                    raise Exception("Payment Deletion failed")
+
+        # PostgreSQL transaction has committed successfully here.
+
+        # 6. Restore Redis inventory only after the DB commit
+        key = f"event:{event_id}:tickets_left"
+        if await redis_client.exists(key):
+            await redis_client.incrby(key, booking_count)
+
+        return {
+            "success": True,
+            "message": "Booking cancelled successfully",
+            "refund_amount": str(refund_amount),
+        }
+
     except Exception as e:
         print("error:", str(e))
         traceback.print_exc()
         return custom_response(
             status_code=400,
             message=str(e),
-            additional_response={"data":None,"message":str(e)}
+            additional_response={"data": None, "message": str(e)},
         )
 
 
@@ -138,6 +219,22 @@ async def create_booking_service(user_id, event_id, booking_data):
         try:
             print("payment is called")
             async with db.transaction() as connection:
+                async with connection.cursor() as cursor:
+                    await cursor.execute(
+                        """
+                        UPDATE users
+                        SET money_left = money_left - %s
+                        WHERE userid = %s
+                        AND money_left >= %s
+                        RETURNING money_left
+                        """,
+                        (amount, user_id, amount)
+                    )
+
+                    result = await cursor.fetchone()
+
+                    if not result:
+                        raise Exception("Insufficient wallet balance")
                 payment = await create_payment_service(
                     user_id, event_id, event_to, idempotency_key, amount, connection
                 )
@@ -176,110 +273,3 @@ async def create_booking_service(user_id, event_id, booking_data):
             message=str(e),
             additional_response={"data": None, "message": str(e)},
         )
-
-
-
-
-# from datetime import date
-# from Redis.redis_client import redis_client
-# from DB.db import DB
-
-# db = DB()
-
-
-# async def cancel_booking_service(user_id, booking_id):
-#     event_id = None
-#     booking_count = None
-
-#     try:
-#         async with db.transaction() as connection:
-#             async with connection.cursor() as cursor:
-
-#                 # 1. Fetch booking and event details
-#                 await cursor.execute(
-#                     """
-#                     SELECT b.eventid,
-#                            b.booking_count,
-    #                        e.event_date,
-    #                        e.event_ticket_price
-    #                 FROM booking b
-    #                 JOIN events e ON e.eventid = b.eventid
-    #                 WHERE b.bookingid = %s
-    #                   AND b.userid = %s
-    #                 FOR UPDATE OF b, e
-    #                 """,
-    #                 (booking_id, user_id)
-    #             )
-
-    #             booking = await cursor.fetchone()
-
-    #             if not booking:
-    #                 raise Exception("Booking not found")
-
-    #             event_id, booking_count, event_date, ticket_price = booking
-
-    #             # 2. Allow cancellation only before the event date
-    #             if date.today() >= event_date:
-    #                 raise Exception(
-    #                     "Booking cannot be cancelled on or after the event date"
-    #                 )
-
-    #             # 3. Restore tickets in PostgreSQL
-    #             await cursor.execute(
-    #                 """
-    #                 UPDATE events
-    #                 SET event_ticket_sold = event_ticket_sold - %s
-    #                 WHERE eventid = %s
-    #                   AND event_ticket_sold >= %s
-    #                 RETURNING eventid
-    #                 """,
-    #                 (booking_count, event_id, booking_count)
-    #             )
-
-    #             if not await cursor.fetchone():
-    #                 raise Exception("Unable to restore event ticket count")
-
-    #             # 4. Refund the user's wallet
-    #             refund_amount = ticket_price * booking_count
-
-    #             await cursor.execute(
-    #                 """
-    #                 UPDATE users
-    #                 SET money_left = money_left + %s
-    #                 WHERE userid = %s
-    #                 RETURNING userid
-    #                 """,
-    #                 (refund_amount, user_id)
-    #             )
-
-    #             if not await cursor.fetchone():
-    #                 raise Exception("Unable to refund user")
-
-    #             # 5. Delete the booking
-    #             await cursor.execute(
-    #                 """
-    #                 DELETE FROM booking
-    #                 WHERE bookingid = %s
-    #                   AND userid = %s
-    #                 RETURNING bookingid
-    #                 """,
-    #                 (booking_id, user_id)
-    #             )
-
-    #             if not await cursor.fetchone():
-    #                 raise Exception("Booking cancellation failed")
-
-    #     # PostgreSQL transaction has committed successfully here.
-
-    #     # 6. Restore Redis inventory only after the DB commit
-    #     key = f"event:{event_id}:tickets_left"
-    #     await redis_client.incrby(key, booking_count)
-
-    #     return {
-    #         "success": True,
-    #         "message": "Booking cancelled successfully",
-    #         "refund_amount": str(refund_amount),
-    #     }
-
-    # except Exception as e:
-    #     raise

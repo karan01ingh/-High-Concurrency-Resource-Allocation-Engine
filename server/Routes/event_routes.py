@@ -3,7 +3,6 @@ from Controllers.event_controller import (
     get_events,
     create_event,
     update_event,
-    delete_event,
     get_all_events,
     get_event_by_event_id,
 )

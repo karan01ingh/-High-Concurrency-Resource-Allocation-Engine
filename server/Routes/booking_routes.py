@@ -4,9 +4,8 @@ router=APIRouter()
 
 @router.post("/{user_id}/{event_id}")
 async def create_booking_route(request:Request,user_id:int,event_id:int):
-    body=await request.json()
-    return await create_booking(request,user_id,event_id,body)
+    return await create_booking(request,user_id,event_id)
 
-@router.delete("/{user_id}/{event_id}/{booking_id}")
-def cancel_booking_route(user_id:int,event_id:int,booking_id:int):
-    return cancel_booking(user_id,event_id,booking_id)
+@router.delete("/{user_id}/{booking_id}")
+async def cancel_booking_route(user_id:int,booking_id:int):
+    return await cancel_booking(user_id,booking_id)

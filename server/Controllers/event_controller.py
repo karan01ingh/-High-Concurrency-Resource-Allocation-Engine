@@ -2,7 +2,6 @@ from Services.event_service import (
     get_event_by_event_id_service,
     create_event_service,
     update_event_service,
-    delete_event_service,
     get_all_events_service,
     get_events_service,
 )
