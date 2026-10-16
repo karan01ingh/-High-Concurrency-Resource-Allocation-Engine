@@ -1,0 +1,78 @@
+
+export const trendingEvents = [
+  {
+    id: 1,
+    title: "Sunburn Festival 2026",
+    category: "Music",
+    image: "https://images.unsplash.com/photo-1459749411175-04bf5292ceea?auto=format&fit=crop&w=800&q=80",
+    location: "Vagator Beach, Goa",
+    date: "15 - 17 Feb 2026",
+    coins: 4999,
+  },
+  {
+    id: 2,
+    title: "TechNext Conference",
+    category: "Tech",
+    image: "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=800&q=80",
+    location: "Bengaluru, India",
+    date: "12 - 13 Mar 2026",
+    coins: 2499,
+  },
+  {
+    id: 3,
+    title: "Stand-up Comedy Night",
+    category: "Comedy",
+    image: "https://images.unsplash.com/photo-1585699324551-f6c309eedeca?auto=format&fit=crop&w=800&q=80",
+    location: "Mumbai, India",
+    date: "25 Mar 2026",
+    coins: 799,
+  },
+  {
+    id: 4,
+    title: "Rishikesh Adventure Camp",
+    category: "Travel",
+    image: "https://images.unsplash.com/photo-1500530855697-b586d89ba3ee?auto=format&fit=crop&w=800&q=80",
+    location: "Rishikesh, India",
+    date: "10 - 12 Apr 2026",
+    coins: 3999,
+  },
+];
+
+export const nearbyEvents = [
+  {
+    id: 5,
+    title: "The Local Band Night",
+    category: "Live Music",
+    image: "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=800&q=80",
+    location: "Jabalpur, India",
+    date: "28 Sep 2026",
+    coins: 499,
+  },
+  {
+    id: 6,
+    title: "Jabalpur Food Carnival",
+    category: "Food & Drinks",
+    image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80",
+    location: "Jabalpur, India",
+    date: "5 Oct 2026",
+    coins: 299,
+  },
+  {
+    id: 7,
+    title: "Web Development Workshop",
+    category: "Workshop",
+    image: "https://images.unsplash.com/photo-1517245386807-bb43f82c33c4?auto=format&fit=crop&w=800&q=80",
+    location: "Jabalpur, India",
+    date: "12 Oct 2026",
+    coins: 999,
+  },
+  {
+    id: 8,
+    title: "Sunrise Yoga Session",
+    category: "Wellness",
+    image: "https://images.unsplash.com/photo-1506126613408-eca07ce68773?auto=format&fit=crop&w=800&q=80",
+    location: "Jabalpur, India",
+    date: "20 Oct 2026",
+    coins: 399,
+  },
+];
