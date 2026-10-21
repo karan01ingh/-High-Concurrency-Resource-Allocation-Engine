@@ -3,6 +3,14 @@ import { useState } from "react";
 import AuthModel from "./components/AuthModel";
 import Navbar from "./Components/Navbar";
 import Home from "./Pages/Home";
+import CreateEvent from "./Pages/Event_Create";
+import Profile from "./Pages/Profile";
+import BookingPayment from "./Pages/Booking_Payments";
+import OrganizerDashboard from "./Pages/Organizer_Dashboard";
+import MyEvents from "./Pages/My_Events";
+import MyBookings from "./Pages/My_Bookings";
+import UserDashboard from "./Pages/User_Dashboard";
+import BookingConfirmation from "./Pages/Booking_Confirmation";
 
 export default function App() {
   const [isOpen, setIsOpen] = useState(true);
@@ -24,7 +32,7 @@ export default function App() {
   return (
     <>
     <Navbar/>
-    <Home/>
+    <BookingConfirmation/>
     </>
   )
 }
