@@ -25,5 +25,5 @@ async def update_user_route(request: Request, user_id: int):
 
 
 @router.post("/")
-async def create_user_route(request:Request,user_data: dict):
-    return await create_user(request,user_data)
+async def create_user_route(request:Request):
+    return await create_user(request)

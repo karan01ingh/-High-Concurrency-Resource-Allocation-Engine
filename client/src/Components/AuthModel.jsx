@@ -9,7 +9,7 @@ export default function AuthModel({ isOpen, onClose }) {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [acceptedTerms, setAcceptedTerms] = useState(false);
-
+  const [role, setRole] = useState("user");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -26,8 +26,15 @@ export default function AuthModel({ isOpen, onClose }) {
     setShowConfirmPassword(false);
   }
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
+
+    if (!isLogin && phone.trim() !== "" && !/^[6-9]\d{9}$/.test(phone.trim())) {
+      toast.error("Enter a valid 10-digit Indian mobile number.", {
+        title: "Invalid phone number",
+      });
+      return;
+    }
 
     if (!isLogin && password !== confirmPassword) {
       toast.error("Passwords do not match.", {
@@ -44,11 +51,41 @@ export default function AuthModel({ isOpen, onClose }) {
     }
 
     // UI only. FastAPI integration will be added later.
-    console.log(
-      isLogin
+    const payload=isLogin
         ? { email, password, rememberMe }
-        : { fullName, email, phone, password, acceptedTerms }
-    );
+        : { username:fullName, role:role, email:email, phonecontact:phone, password:password }
+    console.log("payload:",payload)
+    try {
+      const res = await fetch("http://127.0.0.1:8000/users/", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ payload}),
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (res.status >= 400 && res.status <= 599) {
+        toast.error(data.message || "Request failed. Please try again.", {
+          title: "Request failed",
+        });
+        return;
+      }
+
+      toast.success(data.message || "Request successful.", {
+        title: "Success",
+      });
+      console.log("request completed")
+
+    } catch (error) {
+      console.log("Error in API callling:",error)
+      toast.error("Unable to connect to the server. Please try again.", {
+        title: "Network error",
+      });
+
+      console.error("API request failed:", error);
+    }
   }
 
   const inputClass =
@@ -191,6 +228,25 @@ export default function AuthModel({ isOpen, onClose }) {
                   />
                 </label>
               )}
+              
+              {!isLogin && (
+                <label className={labelClass}>
+                  Account Type
+                  <select
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                    className={inputClass}
+                    required
+                  >
+                    <option value="user">User</option>
+                    <option value="organizer">Event Organizer</option>
+                  </select>
+                  <span className="mt-1 block text-xs font-normal text-slate-500">
+                    Choose whether you want to attend events or organize them.
+                  </span>
+                </label>
+              )}
+
 
               <label className={labelClass}>
                 Email Address
