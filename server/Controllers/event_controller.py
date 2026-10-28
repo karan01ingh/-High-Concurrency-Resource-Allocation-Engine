@@ -26,7 +26,7 @@ async def get_event_by_event_id(request: Request, event_id: int):
 async def create_event(request:Request,user_id):
     print("in controller")
     body = await request.json()
-    return await create_event_service(user_id,body.get("event_data"))
+    return await create_event_service(user_id,body)
 
 
 # used to update an event with event_id and event_data

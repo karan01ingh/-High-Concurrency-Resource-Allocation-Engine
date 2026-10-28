@@ -1,20 +1,18 @@
-
 import { useEffect, useState } from "react";
+import { useToast } from "../Context/ToastContext";
 
 const initialEvent = {
-  title: "Sunburn Festival 2026",
-  category: "Music",
-  type: "Festival",
+  title: "",
   description:
-    "A 3-day music festival featuring top artists from around the world. Experience unforgettable performances, food, and entertainment.",
-  startDate: "2026-02-15",
+    "",
+  startDate: "2026-12-25",
   startTime: "16:00",
   endDate: "2026-02-17",
   endTime: "23:00",
   timezone: "Asia/Kolkata",
   allDay: false,
-  venue: "Vagator Beach",
-  address: "Vagator, Goa, India",
+  venue: "",
+  address: "",
 };
 
 const initialImages = [
@@ -24,10 +22,10 @@ const initialImages = [
   "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=600&q=80",
 ];
 
+
 const steps = [
   "Event Details",
   "Ticket & Pricing",
-  "Additional Info",
   "Review & Publish",
 ];
 
@@ -78,14 +76,16 @@ function formatTime(value) {
 }
 
 export default function CreateEvent() {
+  const [idempotency_Key, setIdempotencyKey] = useState(
+    () => crypto.randomUUID()
+  );
+  const toast = useToast();
   const [event, setEvent] = useState(initialEvent);
   const [images, setImages] = useState([]);
   const [step, setStep] = useState(0);
   const [message, setMessage] = useState("");
   const [ticketTypes, setTicketTypes] = useState([
-    { name: "Early Bird", quantity: "200", price: "999" },
-    { name: "General Admission", quantity: "200", price: "1499" },
-    { name: "VIP Pass", quantity: "100", price: "2499" },
+    { name: "Early Bird", quantity: "200", price: "999" }
   ]);
   const [additionalInfo, setAdditionalInfo] = useState({
     tags: "Music, Food & Drinks, Art, Networking",
@@ -140,26 +140,22 @@ export default function CreateEvent() {
 
   function validateStep() {
     if (step === 0) {
-      if (!event.title.trim() || !event.category || !event.description.trim()) {
-        setMessage("Please complete all required event details.");
+      if (!event.title.trim() || !event.description.trim()) {
+        toast.warning("Please complete all required event details.", {
+          title: "Validation Error",
+        });
         return false;
       }
 
-      if (!event.startDate || !event.startTime || !event.endDate || !event.endTime) {
-        setMessage("Please provide the event start and end date/time.");
+      if (!event.startDate || !event.startTime ) {
+        toast.warning("Please provide the event start and end date/time.",{title:"Validation Error"});
         return false;
       }
 
       const start = new Date(`${event.startDate}T${event.startTime}`);
-      const end = new Date(`${event.endDate}T${event.endTime}`);
-
-      if (end <= start) {
-        setMessage("The event end date and time must be after its start.");
-        return false;
-      }
 
       if (!event.venue.trim() || !event.address.trim()) {
-        setMessage("Please enter the venue name and address.");
+        toast.warning("Please enter the venue name and address..",{title:"Validation Error"});
         return false;
       }
     }
@@ -175,7 +171,7 @@ export default function CreateEvent() {
       );
 
       if (invalidTicket) {
-        setMessage("Enter a valid name, quantity and price for every ticket type.");
+        toast.warning("Enter a valid name, quantity and price for every ticket type.",{title:"Validation Error"});
         return false;
       }
     }
@@ -184,15 +180,85 @@ export default function CreateEvent() {
     return true;
   }
 
-  function goNext() {
-    if (!validateStep()) return;
+  async function createEventAPI() {
+  const payload = {
+    event_date: event.startDate,
+    event_time: event.startTime,
+    event_name: event.title.trim(),
+    event_capacity: Number(ticketTypes[0].quantity),
+    event_ticket_price: Number(ticketTypes[0].price),
+    event_place: event.venue.trim(),
+    event_description: event.description.trim(),
+    idempotency_key: idempotency_Key
+  };
 
-    if (step < steps.length - 1) {
-      setStep((current) => current + 1);
-    } else {
-      setMessage("Review complete. Connect your backend API to publish this event.");
+  console.log("payload",payload)
+  const userId = "1219473";
+
+  const response = await fetch(
+    `http://127.0.0.1:8000/events/create-event/${userId}`,
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(payload),
     }
+  );
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(
+      result.message || result.detail || "Event creation failed"
+    );
   }
+
+  return result;
+}
+
+
+async function goNext() {
+  if (!validateStep()) {
+    toast.warning(message || "Please complete all required fields.", {
+      title: "Validation Error",
+    });
+    return;
+  }
+
+  if (step < steps.length - 1) {
+    setStep((current) => current + 1);
+    return;
+  }
+
+  try {
+    const result = await createEventAPI();
+
+    toast.success(
+      result.message || "Event created successfully!",
+      { title: "Success" }
+    );
+    setEvent(initialEvent);
+  setImages([]);
+  setTicketTypes([
+    { name: "Early Bird", quantity: "200", price: "999" },
+  ]);
+  setAdditionalInfo({
+    tags: "Music, Food & Drinks, Art, Networking",
+    terms: "",
+  });
+  setStep(0);
+  setMessage("");
+  } catch (error) {
+    console.error("Create event error:", error);
+
+    toast.error(
+      error.message || "Failed to create event.",
+      { title: "Event Creation Failed" }
+    );
+  }
+}
+
 
   function updateTicket(index, key, value) {
     setTicketTypes((current) =>
@@ -349,51 +415,6 @@ export default function CreateEvent() {
                       </div>
                     </Field>
 
-                    <div className="grid gap-4 sm:grid-cols-2">
-                      <Field label="Event Category" required>
-                        <select
-                          className={inputClass}
-                          value={event.category}
-                          onChange={(e) => updateEvent("category", e.target.value)}
-                        >
-                          {[
-                            "Music",
-                            "Tech",
-                            "Food & Drinks",
-                            "Art",
-                            "Networking",
-                            "Sports",
-                            "Comedy",
-                            "Travel",
-                            "Wellness",
-                          ].map((category) => (
-                            <option key={category}>{category}</option>
-                          ))}
-                        </select>
-                      </Field>
-
-                      <Field label="Event Type" required>
-                        <select
-                          className={inputClass}
-                          value={event.type}
-                          onChange={(e) => updateEvent("type", e.target.value)}
-                        >
-                          {[
-                            "Festival",
-                            "Conference",
-                            "Concert",
-                            "Workshop",
-                            "Meetup",
-                            "Competition",
-                            "Exhibition",
-                            "Other",
-                          ].map((type) => (
-                            <option key={type}>{type}</option>
-                          ))}
-                        </select>
-                      </Field>
-                    </div>
-
                     <Field label="Short Description" required>
                       <div className="relative">
                         <textarea
@@ -500,26 +521,7 @@ export default function CreateEvent() {
                         onChange={(e) => updateEvent("startTime", e.target.value)}
                       />
                     </Field>
-                    <Field label="End Date" required>
-                      <input
-                        type="date"
-                        className={inputClass}
-                        min={event.startDate}
-                        value={event.endDate}
-                        onChange={(e) => updateEvent("endDate", e.target.value)}
-                      />
-                    </Field>
-                    <Field label="End Time" required>
-                      <input
-                        type="time"
-                        className={inputClass}
-                        disabled={event.allDay}
-                        value={event.endTime}
-                        onChange={(e) => updateEvent("endTime", e.target.value)}
-                      />
-                    </Field>
                   </div>
-
                   <div className="mt-4 flex flex-wrap items-center gap-5">
                     <Field label="Timezone">
                       <select
@@ -600,15 +602,6 @@ export default function CreateEvent() {
                         key={index}
                         className="grid gap-3 rounded-lg border border-slate-200 p-3 sm:grid-cols-[1.3fr_1fr_1fr]"
                       >
-                        <Field label="Ticket Type" required>
-                          <input
-                            className={inputClass}
-                            value={ticket.name}
-                            onChange={(e) =>
-                              updateTicket(index, "name", e.target.value)
-                            }
-                          />
-                        </Field>
                         <Field label="Quantity" required>
                           <input
                             type="number"
@@ -639,23 +632,10 @@ export default function CreateEvent() {
                     Total ticket inventory:{" "}
                     <strong>{totalTickets.toLocaleString("en-IN")}</strong>
                   </p>
-
-                  <button
-                    type="button"
-                    onClick={() =>
-                      setTicketTypes((current) => [
-                        ...current,
-                        { name: "New Ticket", quantity: "100", price: "0" },
-                      ])
-                    }
-                    className="mt-4 rounded-lg border border-emerald-600 px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50"
-                  >
-                    + Add Ticket Type
-                  </button>
                 </>
               )}
 
-              {step === 2 && (
+              {/* {step === 2 && (
                 <>
                   <h2 className="text-lg font-bold">Additional Information</h2>
                   <p className="mb-5 text-xs text-slate-500">
@@ -692,9 +672,9 @@ export default function CreateEvent() {
                     </Field>
                   </div>
                 </>
-              )}
+              )} */}
 
-              {step === 3 && (
+              {step === 2 && (
                 <>
                   <h2 className="text-lg font-bold">Review & Publish</h2>
                   <p className="mb-5 text-xs text-slate-500">
@@ -704,13 +684,11 @@ export default function CreateEvent() {
                   <div className="space-y-3 text-sm">
                     {[
                       ["Event", event.title],
-                      ["Category", `${event.category} · ${event.type}`],
                       ["Start", `${formatDate(event.startDate)} · ${formatTime(event.startTime)}`],
-                      ["End", `${formatDate(event.endDate)} · ${formatTime(event.endTime)}`],
                       ["Venue", event.venue],
                       ["Address", event.address],
-                      ["Ticket Types", String(ticketTypes.length)],
                       ["Total Tickets", totalTickets.toLocaleString("en-IN")],
+                      ["Ticket Price",ticketTypes.map((ticket) => ticket.price).join(", "),]
                     ].map(([label, value]) => (
                       <div
                         key={label}
