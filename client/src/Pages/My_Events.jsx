@@ -1,84 +1,85 @@
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
-const initialEvents = [
-  {
-    id: 1,
-    name: "Sunburn Festival 2026",
-    category: "Music Festival",
-    date: "15 - 17 Feb 2026",
-    startTime: "4:00 PM - 11:00 PM",
-    location: "Vagator Beach, Goa",
-    sold: 320,
-    capacity: 500,
-    revenue: 300000,
-    status: "Live",
-    image:
-      "https://images.unsplash.com/photo-1470229722913-7c0e2dbbafd3?auto=format&fit=crop&w=400&q=80",
-  },
-  {
-    id: 2,
-    name: "TechNext Conference",
-    category: "Tech",
-    date: "12 - 13 Mar 2026",
-    startTime: "9:00 AM - 6:00 PM",
-    location: "Bengaluru, India",
-    sold: 180,
-    capacity: 300,
-    revenue: 249900,
-    status: "Upcoming",
-    image:
-      "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=400&q=80",
-  },
-  {
-    id: 3,
-    name: "Jabalpur Food Carnival",
-    category: "Food & Drinks",
-    date: "5 Oct 2026",
-    startTime: "12:00 PM - 11:00 PM",
-    location: "Jabalpur, India",
-    sold: 75,
-    capacity: 200,
-    revenue: 119600,
-    status: "Upcoming",
-    image:
-      "https://images.unsplash.com/photo-1514525253161-7a46d19cd819?auto=format&fit=crop&w=400&q=80",
-  },
-  {
-    id: 4,
-    name: "Stand-up Comedy Night",
-    category: "Comedy",
-    date: "25 Mar 2026",
-    startTime: "7:00 PM - 10:00 PM",
-    location: "Jabalpur, India",
-    sold: 150,
-    capacity: 150,
-    revenue: 149850,
-    status: "Completed",
-    image:
-      "https://images.unsplash.com/photo-1585699324551-f6c309eedeca?auto=format&fit=crop&w=400&q=80",
-  },
-  {
-    id: 5,
-    name: "Indie Music Night",
-    category: "Music",
-    date: "10 Jan 2026",
-    startTime: "6:00 PM - 11:00 PM",
-    location: "Delhi, India",
-    sold: 200,
-    capacity: 200,
-    revenue: 199500,
-    status: "Completed",
-    image:
-      "https://images.unsplash.com/photo-1501386761578-eac5c94b800a?auto=format&fit=crop&w=400&q=80",
-  },
-];
+const API_URL = "http://127.0.0.1:8000/events/all_events/1036285";
+const UPDATE_EVENT_API = "http://127.0.0.1:8000/events";
 
-const formatNumber = (number) =>
-  number.toLocaleString("en-IN");
+const DEFAULT_EVENT_IMAGE =
+  "https://images.unsplash.com/photo-1540575467063-178a50c2df87?auto=format&fit=crop&w=400&q=80";
 
-const formatCoins = (number) =>
-  number.toLocaleString("en-IN");
+const updateEvent = async (event_id, eventData) => {
+  const response = await fetch(`${UPDATE_EVENT_API}/${event_id}`, {
+    method: "PUT",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      "event_data":{event_name: eventData.name,
+      description: eventData.description,
+      event_date: eventData.date,
+      event_time: eventData.startTime,}
+    }),
+  });
+
+  const result = await response.json();
+
+  if (!response.ok) {
+    throw new Error(result.message || "Failed to update event");
+  }
+
+  return result;
+};
+
+// API response:
+// [eventid, event_date, event_time, event_name,
+//  event_capacity, event_ticket_price, event_place,
+//  event_description, event_created_by, event_ticket_sold]
+
+const mapApiEvent = (event) => {
+  const eventDate = String(event[1] ?? "");
+
+  return {
+    id: String(event[0]),
+    date: eventDate,
+    startTime: String(event[2] ?? ""),
+    name: String(event[3] ?? "Untitled Event"),
+    capacity: Number(event[4] ?? 0),
+    ticket_sold: Number(event[9] ?? 0),
+    ticketPrice: Number(event[5] ?? 0),
+    location: String(event[6] ?? ""),
+    description: String(event[7] ?? ""),
+    createdBy: String(event[8] ?? ""),
+    image: DEFAULT_EVENT_IMAGE,
+    category: "General",
+    status:
+      eventDate < new Date().toLocaleDateString("en-CA")
+        ? "Completed"
+        : "Upcoming",
+  };
+};
+
+const formatNumber = (value) =>
+  Number(value ?? 0).toLocaleString("en-IN");
+
+const formatPrice = (value) =>
+  Number(value ?? 0).toLocaleString("en-IN", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  });
+
+const formatDate = (dateString) => {
+  if (!dateString) return "—";
+
+  const date = new Date(`${dateString}T00:00:00`);
+
+  if (Number.isNaN(date.getTime())) return dateString;
+
+  return date.toLocaleDateString("en-IN", {
+    day: "2-digit",
+    month: "short",
+    year: "numeric",
+  });
+};
 
 function Card({ children, className = "" }) {
   return (
@@ -87,16 +88,6 @@ function Card({ children, className = "" }) {
     >
       {children}
     </section>
-  );
-}
-
-function Coin({ className = "" }) {
-  return (
-    <span
-      className={`inline-flex size-5 shrink-0 items-center justify-center rounded-full border border-yellow-300 bg-gradient-to-br from-yellow-300 to-amber-500 text-[10px] font-bold text-white ${className}`}
-    >
-      $
-    </span>
   );
 }
 
@@ -115,6 +106,7 @@ function StatCard({ icon, title, value, subtitle, theme }) {
       <div className="flex size-12 shrink-0 items-center justify-center rounded-full bg-white/80 text-2xl">
         {icon}
       </div>
+
       <div className="min-w-0 flex-1">
         <p className="text-xs text-slate-600">{title}</p>
         <p className="mt-1 truncate text-2xl font-bold text-slate-900">
@@ -122,23 +114,22 @@ function StatCard({ icon, title, value, subtitle, theme }) {
         </p>
         <p className="mt-1 text-xs text-slate-600">{subtitle}</p>
       </div>
-      <span className="text-xl text-slate-500">›</span>
     </div>
   );
 }
 
 function StatusBadge({ status }) {
   const styles = {
-    Live: "bg-emerald-100 text-emerald-800",
     Upcoming: "bg-blue-50 text-blue-700",
-    Completed: "bg-slate-100 text-slate-600",
+    Completed: "bg-green-200 text-slate-600",
   };
 
   return (
     <span
-      className={`inline-flex whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${styles[status] || styles.Upcoming}`}
+      className={`inline-flex whitespace-nowrap rounded-full px-3 py-2 text-xs font-semibold ${
+        styles[status] || styles.Upcoming
+      }`}
     >
-      {status === "Live" ? "✚ " : ""}
       {status}
     </span>
   );
@@ -154,120 +145,116 @@ function EventTable({ events, onView, onEdit, onMore }) {
             <th className="px-3 py-3">Date &amp; Time</th>
             <th className="px-3 py-3">Location</th>
             <th className="px-3 py-3">Tickets Sold / Capacity</th>
-            <th className="px-3 py-3">Revenue (EventCoins)</th>
+            <th className="px-3 py-3">Ticket Price</th>
             <th className="px-3 py-3">Status</th>
             <th className="rounded-r-lg px-3 py-3">Actions</th>
           </tr>
         </thead>
 
         <tbody>
-          {events.map((event) => {
-            const percentage = event.capacity
-              ? Math.round((event.sold / event.capacity) * 100)
-              : 0;
+          {events.map((event) => (
+            <tr
+              key={event.id}
+              className="border-b border-slate-100 transition hover:bg-slate-50/70"
+            >
+              <td className="px-3 py-3">
+                <div className="flex items-center gap-3">
+                  <img
+                    src={event.image}
+                    alt={event.name}
+                    className="h-16 w-24 shrink-0 rounded-lg object-cover"
+                  />
 
-            return (
-              <tr
-                key={event.id}
-                className="border-b border-slate-100 transition hover:bg-slate-50/70"
-              >
-                <td className="px-3 py-3">
-                  <div className="flex items-center gap-3">
-                    <img
-                      src={event.image}
-                      alt={event.name}
-                      className="h-16 w-24 shrink-0 rounded-lg object-cover"
-                    />
-                    <div className="min-w-0">
-                      <p className="max-w-48 text-xs font-bold text-slate-900">
-                        {event.name}
-                      </p>
-                      <span className="mt-2 inline-flex rounded-full bg-purple-100 px-3 py-1 text-[10px] font-semibold text-purple-700">
-                        {event.category}
-                      </span>
-                    </div>
-                  </div>
-                </td>
+                  <div className="min-w-0">
+                    <p className="max-w-48 text-xs font-bold text-slate-900">
+                      {event.name}
+                    </p>
 
-                <td className="whitespace-nowrap px-3 py-3">
-                  <p className="text-xs text-slate-600">▦ &nbsp;{event.date}</p>
-                  <p className="mt-2 text-xs text-slate-600">
-                    ◷ &nbsp;{event.startTime}
-                  </p>
-                </td>
-
-                <td className="px-3 py-3">
-                  <p className="max-w-36 text-xs leading-5 text-slate-700">
-                    ♧ &nbsp;{event.location}
-                  </p>
-                </td>
-
-                <td className="px-3 py-3">
-                  <p className="text-xs font-semibold">
-                    {event.sold} / {event.capacity}
-                  </p>
-                  <div className="mt-2 flex items-center gap-2">
-                    <div className="h-2.5 w-28 overflow-hidden rounded-full bg-slate-200">
-                      <div
-                        className="h-full rounded-full bg-emerald-600 transition-all"
-                        style={{ width: `${Math.min(percentage, 100)}%` }}
-                      />
-                    </div>
-                    <span className="text-xs text-slate-500">
-                      {percentage}%
+                    <span className="mt-2 inline-flex rounded-full bg-purple-100 px-3 py-1 text-[10px] font-semibold text-purple-700">
+                      {event.category}
                     </span>
                   </div>
-                </td>
+                </div>
+              </td>
 
-                <td className="whitespace-nowrap px-3 py-3">
-                  <p className="flex items-center gap-2 text-xs font-bold">
-                    <Coin />
-                    {formatCoins(event.revenue)}
-                  </p>
-                </td>
+              <td className="whitespace-nowrap px-3 py-3">
+                <p className="text-xs text-slate-600">
+                  ▦ &nbsp;{formatDate(event.date)}
+                </p>
+                <p className="mt-2 text-xs text-slate-600">
+                  ◷ &nbsp;{event.startTime || "—"}
+                </p>
+              </td>
 
-                <td className="px-3 py-3">
-                  <StatusBadge status={event.status} />
-                </td>
+              <td className="px-3 py-3">
+                <p className="max-w-36 text-xs leading-5 text-slate-700">
+                  ♧ &nbsp;{event.location || "—"}
+                </p>
+              </td>
 
-                <td className="px-3 py-3">
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => onView(event)}
-                      className="rounded-lg border border-blue-300 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50"
-                    >
-                      View
-                    </button>
+              <td className="px-3 py-3">
+                <p className="text-xs font-semibold">
+                  {formatNumber(event.ticket_sold)} /{" "}
+                  {formatNumber(event.capacity)}
+                </p>
 
-                    {event.status !== "Completed" && (
-                      <button
-                        type="button"
-                        onClick={() => onEdit(event)}
-                        className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
-                      >
-                        Edit
-                      </button>
-                    )}
+                <p className="mt-2 text-xs text-slate-500">
+                  {event.capacity > 0
+                    ? `${Math.round(
+                        (event.ticket_sold / event.capacity) * 100
+                      )}% booked`
+                    : "Capacity unavailable"}
+                </p>
+              </td>
 
-                    <button
-                      type="button"
-                      aria-label={`More actions for ${event.name}`}
-                      onClick={() => onMore(event)}
-                      className="rounded-lg px-2 py-2 text-lg text-slate-500 hover:bg-slate-100"
-                    >
-                      ⋮
-                    </button>
-                  </div>
-                </td>
-              </tr>
-            );
-          })}
+              <td className="whitespace-nowrap px-3 py-3">
+                <p className="text-xs font-bold">
+                  ₹{formatPrice(event.ticketPrice)}
+                </p>
+              </td>
+
+              <td className="px-3 py-3">
+                <StatusBadge status={event.status} />
+              </td>
+
+              <td className="px-3 py-3">
+                <div className="flex items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => onView(event)}
+                    className="rounded-lg border border-blue-300 px-3 py-2 text-xs font-semibold text-blue-600 hover:bg-blue-50"
+                  >
+                    View
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => onEdit(event)}
+                    className="rounded-lg border border-slate-300 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100"
+                  >
+                    Edit
+                  </button>
+
+                  <button
+                    type="button"
+                    aria-label={`More actions for ${event.name}`}
+                    onClick={() => onMore(event)}
+                    className="rounded-lg px-2 py-2 text-lg text-slate-500 hover:bg-slate-100"
+                  >
+                    ⋮
+                  </button>
+                </div>
+              </td>
+            </tr>
+          ))}
 
           {events.length === 0 && (
             <tr>
-              <td colSpan={7} className="px-4 py-12 text-center text-sm text-slate-500">
-                No events match your search or category.
+              <td
+                colSpan={7}
+                className="px-4 py-12 text-center text-sm text-slate-500"
+              >
+                No events found.
               </td>
             </tr>
           )}
@@ -278,16 +265,73 @@ function EventTable({ events, onView, onEdit, onMore }) {
 }
 
 export default function MyEvents() {
-  const [allEvents, setAllEvents] = useState(initialEvents);
+  const [allEvents, setAllEvents] = useState([]);
   const [activeTab, setActiveTab] = useState("Upcoming");
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All Categories");
   const [notice, setNotice] = useState("");
   const [selectedEvent, setSelectedEvent] = useState(null);
   const [dialogMode, setDialogMode] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+
+  const [limit] = useState(10);
+  const [offset, setOffset] = useState(0);
+  const [hasMore, setHasMore] = useState(false);
+
+  const fetchEvents = async (pageOffset = 0) => {
+    setLoading(true);
+    setError("");
+
+    try {
+      const response = await fetch(API_URL, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          user_id: 1036285,
+          search_value: search.trim(),
+          filter_value: {},
+          order_col: "event_date",
+          order_col_dir: "DESC",
+          limit,
+          offset: pageOffset,
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to fetch events.");
+      }
+
+      const rows = result?.additional_response?.data;
+
+      if (!Array.isArray(rows)) {
+        throw new Error("Unexpected API response format.");
+      }
+
+      const mappedEvents = rows.map(mapApiEvent);
+
+      setAllEvents(mappedEvents);
+      setOffset(pageOffset);
+      setHasMore(mappedEvents.length === limit);
+    } catch (err) {
+      setError(err.message || "Something went wrong while fetching events.");
+      setAllEvents([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Existing search behavior is intentionally preserved.
+  useEffect(() => {
+    fetchEvents(0);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [search]);
 
   const upcoming = useMemo(
-    () => allEvents.filter((event) => event.status !== "Completed"),
+    () => allEvents.filter((event) => event.status === "Upcoming"),
     [allEvents]
   );
 
@@ -296,26 +340,15 @@ export default function MyEvents() {
     [allEvents]
   );
 
-  const filteredEvents = (list) =>
-    list.filter((event) => {
-      const matchesSearch =
-        event.name.toLowerCase().includes(search.toLowerCase()) ||
-        event.location.toLowerCase().includes(search.toLowerCase()) ||
-        event.category.toLowerCase().includes(search.toLowerCase());
+  const visibleEvents = activeTab === "Upcoming" ? upcoming : completed;
 
-      const matchesCategory =
-        category === "All Categories" || event.category === category;
-
-      return matchesSearch && matchesCategory;
-    });
-
-  const categories = [...new Set(allEvents.map((event) => event.category))];
-
-  const totalAttendees = allEvents.reduce((sum, event) => sum + event.sold, 0);
-  const totalRevenue = allEvents.reduce((sum, event) => sum + event.revenue, 0);
+  const totalCapacity = allEvents.reduce(
+    (sum, event) => sum + event.capacity,
+    0
+  );
 
   function showEvent(event, mode) {
-    setSelectedEvent(event);
+    setSelectedEvent({ ...event });
     setDialogMode(mode);
   }
 
@@ -324,37 +357,43 @@ export default function MyEvents() {
     setDialogMode("");
   }
 
-  function updateEvent(eventId, updates) {
-    setAllEvents((current) =>
-      current.map((event) =>
-        event.id === eventId ? { ...event, ...updates } : event
-      )
-    );
-  }
-
   function handleCreateEvent() {
     setNotice("Connect this button to your Create Event page or route.");
+  }
+
+  async function handleSaveEdit(event) {
+    try {
+      setNotice("");
+
+      await updateEvent(event.id, event);
+
+      setAllEvents((current) =>
+        current.map((item) => (item.id === event.id ? event : item))
+      );
+
+      closeDialog();
+      setNotice("Event updated successfully.");
+    } catch (error) {
+      setNotice(error.message || "Failed to update event.");
+    }
   }
 
   return (
     <div className="min-h-screen bg-slate-50 text-slate-900">
       <div className="flex min-h-[calc(100vh-64px)]">
-        {/* Organizer sidebar */}
         <aside className="hidden w-64 shrink-0 border-r border-slate-200 bg-white/80 px-3 py-5 lg:block">
           <div className="mb-7 flex items-center gap-3 px-2">
             <div className="flex size-14 items-center justify-center rounded-full bg-slate-950 text-center text-[10px] font-bold leading-tight text-white">
-              SUNBURN<br />LIVE
+              EVENT
+              <br />
+              LIVE
             </div>
+
             <div>
-              <p className="text-sm font-bold">Sunburn Live</p>
-              <p className="mt-1 text-xs text-slate-500">Organizer Account</p>
-              <button
-                type="button"
-                onClick={() => setNotice("Connect this action to the organizer profile page.")}
-                className="mt-1 text-xs text-emerald-700 underline"
-              >
-                View Profile
-              </button>
+              <p className="text-sm font-bold">Organizer Account</p>
+              <p className="mt-1 text-xs text-slate-500">
+                Event Management
+              </p>
             </div>
           </div>
 
@@ -386,14 +425,6 @@ export default function MyEvents() {
                 {label}
               </button>
             ))}
-
-            <button
-              type="button"
-              onClick={() => setNotice("Connect logout to your authentication flow.")}
-              className="mt-5 flex w-full items-center gap-4 px-4 py-3 text-sm font-medium text-red-500"
-            >
-              <span className="text-xl">⇥</span> Logout
-            </button>
           </nav>
         </aside>
 
@@ -402,7 +433,7 @@ export default function MyEvents() {
             <div>
               <h1 className="text-3xl font-bold tracking-tight">My Events</h1>
               <p className="mt-1 text-sm text-slate-500">
-                Manage, edit, and track all your events.
+                Manage, edit, and track your events.
               </p>
             </div>
 
@@ -416,45 +447,77 @@ export default function MyEvents() {
           </header>
 
           {notice && (
-            <div role="status" className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900">
+            <div
+              role="status"
+              className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-900"
+            >
               {notice}
-              <button type="button" onClick={() => setNotice("")} aria-label="Dismiss">×</button>
+              <button
+                type="button"
+                onClick={() => setNotice("")}
+                aria-label="Dismiss"
+              >
+                ×
+              </button>
             </div>
           )}
 
-          {/* Summary statistics */}
+          {error && (
+            <div
+              role="alert"
+              className="mb-4 flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"
+            >
+              <span>{error}</span>
+              <button
+                type="button"
+                onClick={() => fetchEvents(offset)}
+                className="font-semibold underline"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+
           <div className="grid gap-3 sm:grid-cols-2 2xl:grid-cols-4">
             <StatCard
               icon="▦"
-              title="Total Events"
+              title="Events on This Page"
               value={allEvents.length}
-              subtitle={`${upcoming.length} Upcoming • ${completed.length} Completed`}
+              subtitle="Events returned by the API"
               theme="blue"
             />
+
             <StatCard
               icon="♟"
-              title="Total Attendees"
-              value={formatNumber(totalAttendees)}
-              subtitle="Across all events"
+              title="Total Capacity"
+              value={formatNumber(totalCapacity)}
+              subtitle="Across fetched events"
               theme="green"
             />
+
             <StatCard
-              icon="🟡"
-              title="Total EventCoins Earned"
-              value={formatCoins(totalRevenue)}
-              subtitle="Across all events"
+              icon="₹"
+              title="Ticket Price Range"
+              value={
+                allEvents.length
+                  ? `₹${formatPrice(
+                      Math.min(...allEvents.map((event) => event.ticketPrice))
+                    )}`
+                  : "—"
+              }
+              subtitle="Lowest listed ticket price"
               theme="amber"
             />
+
             <StatCard
               icon="▥"
-              title="Average Event Rating"
-              value="4.6"
-              subtitle="★★★★★"
+              title="Event Records"
+              value={loading ? "…" : allEvents.length}
+              subtitle="Current API response"
               theme="purple"
             />
           </div>
 
-          {/* Upcoming events and search */}
           <Card className="mt-4 !p-0">
             <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-100 px-4 pt-3">
               <div className="flex gap-5">
@@ -488,54 +551,67 @@ export default function MyEvents() {
                   />
                 </div>
 
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs outline-none focus:border-emerald-600"
+                <button
+                  type="button"
+                  onClick={() => fetchEvents(0)}
+                  disabled={loading}
+                  className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-xs font-semibold hover:bg-slate-50 disabled:opacity-50"
                 >
-                  <option>All Categories</option>
-                  {categories.map((item) => (
-                    <option key={item}>{item}</option>
-                  ))}
-                </select>
+                  {loading ? "Loading..." : "Refresh"}
+                </button>
               </div>
             </div>
 
             <div className="p-3">
-              <EventTable
-                events={filteredEvents(activeTab === "Upcoming" ? upcoming : completed)}
-                onView={(event) => showEvent(event, "view")}
-                onEdit={(event) => showEvent(event, "edit")}
-                onMore={(event) => showEvent(event, "more")}
-              />
-            </div>
-          </Card>
+              {loading ? (
+                <p className="py-12 text-center text-sm text-slate-500">
+                  Loading events...
+                </p>
+              ) : (
+                <EventTable
+                  events={visibleEvents}
+                  onView={(event) => showEvent(event, "view")}
+                  onEdit={(event) => showEvent(event, "edit")}
+                  onMore={(event) => showEvent(event, "more")}
+                />
+              )}
 
-          {/* Completed events */}
-          <Card className="mt-4">
-            <div className="mb-3 flex items-center justify-between">
-              <h2 className="text-lg font-bold">
-                Completed Events ({completed.length})
-              </h2>
-            </div>
+              <div className="mt-4 flex items-center justify-between gap-3 border-t border-slate-100 pt-4">
+                <p className="text-xs text-slate-500">
+                  Page offset: {offset}
+                </p>
 
-            <EventTable
-              events={filteredEvents(completed)}
-              onView={(event) => showEvent(event, "view")}
-              onEdit={(event) => showEvent(event, "edit")}
-              onMore={(event) => showEvent(event, "more")}
-            />
+                <div className="flex gap-2">
+                  <button
+                    type="button"
+                    disabled={loading || offset === 0}
+                    onClick={() => fetchEvents(Math.max(0, offset - limit))}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Previous
+                  </button>
+
+                  <button
+                    type="button"
+                    disabled={loading || !hasMore}
+                    onClick={() => fetchEvents(offset + limit)}
+                    className="rounded-lg border border-slate-200 px-3 py-2 text-xs font-semibold disabled:cursor-not-allowed disabled:opacity-40"
+                  >
+                    Next
+                  </button>
+                </div>
+              </div>
+            </div>
           </Card>
         </main>
       </div>
 
-      {/* View / edit event dialog */}
       {selectedEvent && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/50 p-4">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center overflow-y-auto bg-slate-950/50 p-4">
           <div
             role="dialog"
             aria-modal="true"
-            className="w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl"
+            className="my-auto w-full max-w-lg rounded-2xl bg-white p-5 shadow-2xl"
           >
             <div className="mb-4 flex items-start justify-between gap-3">
               <div>
@@ -546,17 +622,26 @@ export default function MyEvents() {
                       ? "Event Actions"
                       : "Event Details"}
                 </h2>
-                <p className="mt-1 text-sm text-slate-500">{selectedEvent.name}</p>
+                <p className="mt-1 text-sm text-slate-500">
+                  Event ID: {selectedEvent.id}
+                </p>
               </div>
-              <button type="button" onClick={closeDialog} className="text-xl text-slate-500" aria-label="Close">×</button>
+
+              <button
+                type="button"
+                onClick={closeDialog}
+                className="text-xl text-slate-500"
+                aria-label="Close"
+              >
+                ×
+              </button>
             </div>
 
             {dialogMode === "edit" ? (
               <form
                 onSubmit={(e) => {
                   e.preventDefault();
-                  closeDialog();
-                  setNotice("Event updated in local UI state. Connect the update API to persist it.");
+                  handleSaveEdit(selectedEvent);
                 }}
                 className="space-y-4"
               >
@@ -565,42 +650,80 @@ export default function MyEvents() {
                   <input
                     required
                     value={selectedEvent.name}
-                    onChange={(e) => setSelectedEvent({ ...selectedEvent, name: e.target.value })}
+                    onChange={(e) =>
+                      setSelectedEvent({
+                        ...selectedEvent,
+                        name: e.target.value,
+                      })
+                    }
                     className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
                   />
                 </label>
 
                 <label className="block text-sm font-medium">
-                  Category
+                  Event Date
                   <input
                     required
-                    value={selectedEvent.category}
-                    onChange={(e) => setSelectedEvent({ ...selectedEvent, category: e.target.value })}
+                    type="date"
+                    value={selectedEvent.date}
+                    onChange={(e) =>
+                      setSelectedEvent({
+                        ...selectedEvent,
+                        date: e.target.value,
+                        status:
+                          e.target.value <
+                          new Date().toLocaleDateString("en-CA")
+                            ? "Completed"
+                            : "Upcoming",
+                      })
+                    }
                     className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
                   />
                 </label>
 
                 <label className="block text-sm font-medium">
-                  Ticket Capacity
+                  Event Time
                   <input
                     required
-                    type="number"
-                    min={selectedEvent.sold}
-                    value={selectedEvent.capacity}
-                    onChange={(e) => setSelectedEvent({ ...selectedEvent, capacity: Number(e.target.value) })}
+                    type="text"
+                    placeholder="e.g. 06:30PM"
+                    value={selectedEvent.startTime}
+                    onChange={(e) =>
+                      setSelectedEvent({
+                        ...selectedEvent,
+                        startTime: e.target.value,
+                      })
+                    }
+                    className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
+                  />
+                </label>
+
+                <label className="block text-sm font-medium">
+                  Description
+                  <textarea
+                    rows={3}
+                    value={selectedEvent.description}
+                    onChange={(e) =>
+                      setSelectedEvent({
+                        ...selectedEvent,
+                        description: e.target.value,
+                      })
+                    }
                     className="mt-1.5 w-full rounded-lg border border-slate-200 px-3 py-2.5 text-sm outline-none focus:border-emerald-600"
                   />
                 </label>
 
                 <div className="flex justify-end gap-2">
-                  <button type="button" onClick={closeDialog} className="rounded-lg border border-slate-300 px-4 py-2 text-sm">Cancel</button>
+                  <button
+                    type="button"
+                    onClick={closeDialog}
+                    className="rounded-lg border border-slate-300 px-4 py-2 text-sm"
+                  >
+                    Cancel
+                  </button>
+
                   <button
                     type="submit"
-                    onClick={() => {
-                      if (selectedEvent.name.trim()) {
-                        updateEvent(selectedEvent.id, selectedEvent);
-                      }
-                    }}
                     className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold text-white"
                   >
                     Save Changes
@@ -612,31 +735,23 @@ export default function MyEvents() {
                 <button
                   type="button"
                   onClick={() => {
-                    updateEvent(selectedEvent.id, {
-                      status: selectedEvent.status === "Live" ? "Upcoming" : "Live",
-                    });
                     closeDialog();
-                    setNotice("Event status changed in local UI state.");
-                  }}
-                  className="w-full rounded-lg border border-slate-200 p-3 text-left text-sm hover:bg-slate-50"
-                >
-                  Change status: {selectedEvent.status === "Live" ? "Upcoming" : "Live"}
-                </button>
-                <button
-                  type="button"
-                  onClick={() => {
-                    closeDialog();
-                    setNotice("Connect this action to your event duplication API.");
+                    setNotice(
+                      "Connect this action to your event duplication API."
+                    );
                   }}
                   className="w-full rounded-lg border border-slate-200 p-3 text-left text-sm hover:bg-slate-50"
                 >
                   Duplicate event
                 </button>
+
                 <button
                   type="button"
                   onClick={() => {
                     closeDialog();
-                    setNotice("Connect this action to your event cancellation API.");
+                    setNotice(
+                      "Connect this action to your event cancellation API."
+                    );
                   }}
                   className="w-full rounded-lg border border-red-100 p-3 text-left text-sm text-red-600 hover:bg-red-50"
                 >
@@ -645,26 +760,64 @@ export default function MyEvents() {
               </div>
             ) : (
               <div>
-                <img src={selectedEvent.image} alt={selectedEvent.name} className="h-48 w-full rounded-xl object-cover" />
+                <img
+                  src={selectedEvent.image}
+                  alt={selectedEvent.name}
+                  className="h-48 w-full rounded-xl object-cover"
+                />
+
+                <h3 className="mt-4 text-lg font-bold">
+                  {selectedEvent.name}
+                </h3>
+
+                <p className="mt-2 text-sm text-slate-600">
+                  {selectedEvent.description || "No description available."}
+                </p>
+
                 <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
                   <div className="rounded-lg bg-slate-50 p-3">
                     <p className="text-xs text-slate-500">Date</p>
-                    <p className="mt-1 font-semibold">{selectedEvent.date}</p>
+                    <p className="mt-1 font-semibold">
+                      {formatDate(selectedEvent.date)}
+                    </p>
                   </div>
+
                   <div className="rounded-lg bg-slate-50 p-3">
                     <p className="text-xs text-slate-500">Status</p>
-                    <div className="mt-1"><StatusBadge status={selectedEvent.status} /></div>
+                    <div className="mt-1">
+                      <StatusBadge status={selectedEvent.status} />
+                    </div>
                   </div>
+
                   <div className="rounded-lg bg-slate-50 p-3">
-                    <p className="text-xs text-slate-500">Tickets Sold</p>
-                    <p className="mt-1 font-semibold">{selectedEvent.sold} / {selectedEvent.capacity}</p>
+                    <p className="text-xs text-slate-500">Ticket Price</p>
+                    <p className="mt-1 font-semibold">
+                      ₹{formatPrice(selectedEvent.ticketPrice)}
+                    </p>
                   </div>
+
                   <div className="rounded-lg bg-slate-50 p-3">
-                    <p className="text-xs text-slate-500">Revenue</p>
-                    <p className="mt-1 font-semibold">{formatCoins(selectedEvent.revenue)} Coins</p>
+                    <p className="text-xs text-slate-500">Capacity</p>
+                    <p className="mt-1 font-semibold">
+                      {formatNumber(selectedEvent.capacity)}
+                    </p>
+                  </div>
+
+                  <div className="col-span-2 rounded-lg bg-slate-50 p-3">
+                    <p className="text-xs text-slate-500">Location</p>
+                    <p className="mt-1 font-semibold">
+                      {selectedEvent.location || "—"}
+                    </p>
                   </div>
                 </div>
-                <button type="button" onClick={closeDialog} className="mt-4 w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white">Close</button>
+
+                <button
+                  type="button"
+                  onClick={closeDialog}
+                  className="mt-4 w-full rounded-lg bg-emerald-700 px-4 py-2.5 text-sm font-semibold text-white"
+                >
+                  Close
+                </button>
               </div>
             )}
           </div>

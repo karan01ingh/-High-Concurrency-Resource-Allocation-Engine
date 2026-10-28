@@ -206,68 +206,113 @@ async def get_all_events_service(
 ):
     try:
         where = []
+        params = []
+
+        # Search across all supported fields
         if search_value:
-            where.append(f"""(
-                CAST(eventid AS TEXT) ILIKE '%{search_value}%' OR 
-                CAST(created_at AS TEXT) ILIKE '%{search_value}%' OR
-                CAST(event_time AS TEXT) ILIKE '%{search_value}%' OR
-                CAST(event_name AS TEXT) ILIKE '%{search_value}%' OR
-                CAST(event_date AS TEXT) ILIKE '%{search_value}%' OR
-                CAST(event_capacity AS TEXT) ILIKE '%{search_value}%' OR
-                CAST(event_ticket_price AS TEXT) ILIKE '%{search_value}%' OR
-                CAST(event_ticket_sold AS TEXT) ILIKE '%{search_value}%' OR
-                CAST(event_place AS TEXT) ILIKE '%{search_value}%' OR
-                CAST(event_description AS TEXT) ILIKE '%{search_value}%' OR
-                CAST(event_created_by AS TEXT) ILIKE '%{search_value}%'  
-            )""")
+            search_pattern = f"%{search_value}%"
 
-        to_date = (
-            date(3000, 1, 1)
-            if not filter_value.get("to_date")
-            else filter_value.get("to_date")
-        )
-        from_date = (
-            date(1970, 1, 1)
-            if not filter_value.get("from_date")
-            else filter_value.get("from_date")
-        )
-        to_price = (
-            99999999
-            if not filter_value.get("to_price")
-            else filter_value.get("to_price")
-        )
+            where.append("""
+                (
+                    CAST(eventid AS TEXT) ILIKE %s OR
+                    CAST(created_at AS TEXT) ILIKE %s OR
+                    CAST(event_time AS TEXT) ILIKE %s OR
+                    CAST(event_name AS TEXT) ILIKE %s OR
+                    CAST(event_date AS TEXT) ILIKE %s OR
+                    CAST(event_capacity AS TEXT) ILIKE %s OR
+                    CAST(event_ticket_price AS TEXT) ILIKE %s OR
+                    CAST(event_ticket_sold AS TEXT) ILIKE %s OR
+                    CAST(event_place AS TEXT) ILIKE %s OR
+                    CAST(event_description AS TEXT) ILIKE %s OR
+                    CAST(event_created_by AS TEXT) ILIKE %s
+                )
+            """)
+
+            params.extend([search_pattern] * 11)
+
+        filter_value = filter_value or {}
+
+        to_date = filter_value.get("to_date") or date(3000, 1, 1)
+        from_date = filter_value.get("from_date") or date(1970, 1, 1)
+        to_price = filter_value.get("to_price") or 99999999
         from_price = (
-            0 if not filter_value.get("from_price") else filter_value.get("from_price")
+            0 if filter_value.get("from_price") is None
+            else filter_value["from_price"]
         )
 
-        where.append(f" event_date BETWEEN '{from_date}' AND '{to_date}'")
-        where.append(f" event_ticket_price BETWEEN {from_price} AND {to_price}")
-        where.append(f" event_created_by = {user_id}")
-        where_str = f" WHERE {' AND '.join(where)}" if where else ""
+        where.append("event_date BETWEEN %s AND %s")
+        params.extend([from_date, to_date])
 
-        order_str = (
-            " ORDER BY event_date DESC "
-            if not order_col or not order_col_dir
-            else f"ORDER BY {order_col} {order_col_dir}"
+        where.append("event_ticket_price BETWEEN %s AND %s")
+        params.extend([from_price, to_price])
+
+        where.append("event_created_by = %s")
+        params.append(user_id)
+
+        where_str = " WHERE " + " AND ".join(where)
+
+        # SQL identifiers cannot be passed as ordinary query parameters.
+        allowed_order_cols = {
+            "event_date",
+            "event_name",
+            "event_capacity",
+            "event_ticket_price",
+            "event_ticket_sold",
+            "created_at",
+            "eventid",
+        }
+
+        safe_order_col = (
+            order_col if order_col in allowed_order_cols else "event_date"
         )
 
-        base_query = f"SELECT CAST(eventid AS TEXT) as eventid,event_date,to_char(event_time, 'HH12:MIAM' ) as event_time,event_name,CAST(event_capacity AS TEXT) as event_capacity,CAST(event_ticket_price AS TEXT) as event_ticket_price,event_place,event_description,CAST(event_created_by AS TEXT) as event_created_by  FROM events {where_str} {order_str} LIMIT %s OFFSET %s "
-        params = (limit, offset)
-        results = await db.get_many(base_query, params)
+        safe_order_dir = (
+            order_col_dir.upper()
+            if order_col_dir and order_col_dir.upper() in {"ASC", "DESC"}
+            else "DESC"
+        )
+
+        order_str = f" ORDER BY {safe_order_col} {safe_order_dir}"
+
+        base_query = f"""
+            SELECT
+                CAST(eventid AS TEXT) AS eventid,
+                event_date,
+                to_char(event_time, 'HH12:MIAM') AS event_time,
+                event_name,
+                CAST(event_capacity AS TEXT) AS event_capacity,
+                CAST(event_ticket_price AS TEXT) AS event_ticket_price,
+                event_place,
+                event_description,
+                CAST(event_created_by AS TEXT) AS event_created_by,
+                CAST(event_ticket_sold AS TEXT) AS event_ticket_sold
+            FROM events
+            {where_str}
+            {order_str}
+            LIMIT %s OFFSET %s
+        """
+
+        params.extend([limit, offset])
+        results = await db.get_many(base_query, tuple(params))
+
         if not results:
             return custom_response(
-                status_code=404, message="No event found", additional_response={}
+                status_code=404,
+                message="No event found",
+                additional_response={"data": []},
             )
+
         return custom_response(
-            status_code=201,
-            message="Succesfully get the events",
+            status_code=200,
+            message="Successfully retrieved events",
             additional_response={"data": results},
         )
+
     except Exception as e:
-        print("Error in get_event_by_event_id_service:", str(e))
+        print("Error in get_all_events_service:", str(e))
         return custom_response(
             status_code=400,
-            message="Error in get_all_events_services",
+            message="Error in get_all_events_service",
             additional_response={},
         )
 
