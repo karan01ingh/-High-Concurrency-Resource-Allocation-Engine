@@ -4,6 +4,7 @@ from Controllers.user_controller import (
     get_user_by_id,
     update_user,
     create_user,
+    login_user_controller
 )
 
 router = APIRouter()
@@ -24,6 +25,10 @@ async def update_user_route(request: Request, user_id: int):
     return await update_user(request, user_id)
 
 
-@router.post("/")
+@router.post("/signup")
 async def create_user_route(request:Request):
     return await create_user(request)
+
+@router.post("/signin")
+async def login_user(request:Request):
+    return await login_user_controller(request)

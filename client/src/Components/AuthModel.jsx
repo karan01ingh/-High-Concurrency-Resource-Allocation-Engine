@@ -56,7 +56,11 @@ export default function AuthModel({ isOpen, onClose }) {
         : { username:fullName, role:role, email:email, phonecontact:phone, password:password }
     console.log("payload:",payload)
     try {
-      const res = await fetch("http://127.0.0.1:8000/users/", {
+      const endpoint = isLogin
+      ? "http://127.0.0.1:8000/users/signin"
+      : "http://127.0.0.1:8000/users/signup";
+
+      const res = await fetch(endpoint, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",

@@ -2,8 +2,9 @@ from fastapi import Request
 from Services.user_service import (
     get_user_by_id_service,
     update_user_service,
-    create_user_service,
+    signup_service,
     get_all_users_service,
+    signin_service
 )
 
 
@@ -32,7 +33,12 @@ async def update_user(request: Request, user_id: int):
     return await update_user_service(user_id, body.get("user_data"))
 
 
-# used to craete a user with user_id and user_data
+# used to craete with user_data
 async def create_user(request:Request):
     body = await request.json()
-    return await create_user_service(body.get("payload"))
+    return await signup_service(body.get("payload"))
+
+# 
+async def login_user_controller(request:Request):
+    body=await request.json()
+    return await signin_service(body.get("payload"))

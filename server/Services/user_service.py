@@ -5,6 +5,7 @@ import traceback
 import psycopg
 import bcrypt
 import re
+from utils.jwt import create_access_token
 
 db = DB()
 
@@ -96,7 +97,7 @@ async def update_user_service(user_id, user_data):
         )
 
 
-async def create_user_service(user_data):
+async def signup_service(user_data):
     try:
         if not user_data:
             return custom_response(
@@ -175,13 +176,31 @@ async def create_user_service(user_data):
                 message="Internal server error in creating user",
                 additional_response={"error": "Try after sometime"},
             )
+        print(result)
+        user_id = result[0][0]
+
+        access_token = create_access_token({
+            "sub": str(user_id),
+            "role": user_data["role"]
+        })
+
         return custom_response(
             status_code=201,
             message="User created successfully",
-            additional_response={"data": result},
+            additional_response={
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user": {
+                    "userid": user_id,
+                    "username": user_data["username"],
+                    "email": user_data["email"],
+                    "role": user_data["role"]
+                }
+            }
         )
 
     except psycopg.errors.UniqueViolation:
+        traceback.print_exc()
         return custom_response(
             status_code=409,
             message="User already exists",
@@ -198,6 +217,73 @@ async def create_user_service(user_data):
             additional_response={"Error": str(e)},
         )
 
+async def signin_service(user_data):
+    try:
+        email = user_data.get("email", "").strip().lower()
+        password = user_data.get("password", "")
+
+        if not email or not password:
+            return custom_response(
+                status_code=400,
+                message="Email and password are required",
+                additional_response={}
+            )
+
+        query = """
+            SELECT userid as userid, username as username, email as email, role as role, password as password
+            FROM users
+            WHERE email = %s
+        """
+
+        user = await db.get_many(query, (email,))
+        print("user:",user)
+        if not user:
+            return custom_response(
+                status_code=401,
+                message="Invalid email or password",
+                additional_response={}
+            )
+
+        password_valid = bcrypt.checkpw(
+            password.encode("utf-8"),
+            user[0][4].encode("utf-8")
+        )
+
+        if not password_valid:
+            return custom_response(
+                status_code=401,
+                message="Invalid email or password",
+                additional_response={}
+            )
+
+        access_token = create_access_token({
+            "sub": str(user[0][0]),
+            "role": user[0][3]
+        })
+
+        return custom_response(
+            status_code=200,
+            message="Login successful",
+            additional_response={
+                "access_token": access_token,
+                "token_type": "bearer",
+                "user": {
+                    "userid": user[0][0],
+                    "username": user[0][1],
+                    "email": user[0][2],
+                    "role": user[0][3]
+                }
+            }
+        )
+
+    except Exception as e:
+        print("Signin error:", str(e))
+        traceback.print_exc()
+        return custom_response(
+            status_code=500,
+            message="Internal server error",
+            additional_response={}
+        )
 
 async def get_all_users_service(
     search_value, filter_value, order_col, order_col_dir, limit, offset
