@@ -1,4 +1,5 @@
 import os
+import re
 import jwt
 
 from fastapi import Request
@@ -10,21 +11,48 @@ SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 
 
+# APIs accessible without authentication
+PUBLIC_ROUTES = {
+    ("POST", "/users/signup"),
+    ("POST", "/users/signin"),
+    ("POST", "/events/"),
+    ("GET", "/events/{event_id}"),
+}
+
+
+# Role-based permissions
+ROLE_PERMISSIONS = {
+    "user": [
+        ("GET", r"/users/\d+"),
+        ("PATCH", r"/users/\d+"),
+        ("POST", r"/bookings/\d+/\d+"),
+        ("DELETE", r"/bookings/\d+/\d+"),
+    ],
+
+    "organizer": [
+        ("GET", r"/users/\d+"),
+        ("PATCH", r"/users/\d+"),
+        ("POST", r"/users/all"),
+        ("POST", r"/events/all_events/\d+"),
+        ("POST", r"/events/create-event/\d+"),
+        ("PUT", r"/events/\d+"),
+    ],
+}
+
+
 class AuthMiddleware(BaseHTTPMiddleware):
 
     async def dispatch(self, request: Request, call_next):
 
-        # Routes that don't require authentication
-        public_routes = {
-            "/users/signup",
-            "/users/signin",
-            "/openapi.json",
-            "/redoc",
-            "/docs",
-        }
+        path = request.url.path
+        method = request.method
 
-        # Skip authentication for public routes and CORS preflight
-        if request.method == "OPTIONS" or request.url.path in public_routes:
+        # Allow CORS preflight requests
+        if method == "OPTIONS":
+            return await call_next(request)
+
+        # Allow public routes
+        if (method, path) in PUBLIC_ROUTES:
             return await call_next(request)
 
         # Get Authorization header
@@ -45,9 +73,18 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 algorithms=[ALGORITHM]
             )
 
+            user_id = int(payload["sub"])
+            role = payload["role"]
+
+            if role not in ("user", "organizer"):
+                return JSONResponse(
+                    status_code=403,
+                    content={"message": "Invalid user role"}
+                )
+
             request.state.user = {
-                "userid": int(payload["sub"]),
-                "role": payload["role"]
+                "userid": user_id,
+                "role": role
             }
 
         except jwt.ExpiredSignatureError:
@@ -60,6 +97,20 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return JSONResponse(
                 status_code=401,
                 content={"message": "Invalid access token"}
+            )
+
+        # Check role permissions
+        allowed = any(
+            method == allowed_method and re.fullmatch(pattern, path)
+            for allowed_method, pattern in ROLE_PERMISSIONS[role]
+        )
+
+        if not allowed:
+            return JSONResponse(
+                status_code=403,
+                content={
+                    "message": "You don't have permission to access this resource"
+                }
             )
 
         return await call_next(request)
