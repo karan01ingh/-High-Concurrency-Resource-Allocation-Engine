@@ -1,7 +1,10 @@
-
 import { useState } from "react";
+import { useAuth } from "../Context/AuthContext";
+import { useNavigate } from "react-router-dom";
+import AuthModel from "../components/AuthModel";
 
 const navLinks = ["Home", "Events", "Categories", "About", "Contact"];
+
 
 export default function Navbar() {
   const [activeLink, setActiveLink] = useState("Home");
@@ -9,6 +12,8 @@ export default function Navbar() {
   const [showLocations, setShowLocations] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
   const [showNotifications, setShowNotifications] = useState(false);
+  const { user, isAuthenticated, openAuthModal, logout } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <header className="sticky top-0 z-50 h-[68px] border-b border-slate-800 bg-[#020b1b] text-white">
@@ -145,7 +150,7 @@ export default function Navbar() {
           </div>
 
           {/* Admin dropdown */}
-          <div className="relative">
+          {/* <div className="relative">
             <button
               onClick={() => setShowAdmin(!showAdmin)}
               className="flex items-center gap-2 whitespace-nowrap rounded-lg py-1.5 hover:text-emerald-300"
@@ -172,7 +177,80 @@ export default function Navbar() {
                 ))}
               </div>
             )}
-          </div>
+          </div> */}
+
+{/* Authentication controls */}
+{!isAuthenticated ? (
+  <div className="flex items-center gap-2">
+    <button
+      onClick={openAuthModal}
+      className="rounded-lg border border-slate-600 px-4 py-2 text-sm font-semibold hover:border-emerald-400 hover:text-emerald-300"
+    >
+      Login
+    </button>
+
+    <button
+      onClick={openAuthModal}
+      className="rounded-lg bg-emerald-700 px-4 py-2 text-sm font-semibold hover:bg-emerald-800"
+    >
+      Sign Up
+    </button>
+  </div>
+) : (
+  <div className="relative">
+    <button
+      onClick={() => setShowAdmin(!showAdmin)}
+      className="flex items-center gap-2 rounded-lg py-1.5 hover:text-emerald-300"
+    >
+      <span className="flex h-9 w-9 items-center justify-center rounded-full bg-white text-xl text-slate-900">
+        {user.username?.charAt(0).toUpperCase()}
+      </span>
+
+      <span className="hidden md:inline">{user.username}</span>
+      <span className="text-xs">⌄</span>
+    </button>
+
+    {showAdmin && (
+      <div className="absolute right-0 top-12 w-48 overflow-hidden rounded-xl border border-slate-700 bg-slate-900 py-1 shadow-xl">
+        <button
+          onClick={() => {
+            setShowAdmin(false);
+            navigate("/profile");
+          }}
+          className="block w-full px-4 py-2.5 text-left text-sm hover:bg-slate-800"
+        >
+          My Profile
+        </button>
+
+        <button
+          onClick={() => {
+            setShowAdmin(false);
+            navigate(
+              user.role === "organizer"
+                ? "/organizer-dashboard"
+                : "/user-dashboard"
+            );
+          }}
+          className="block w-full px-4 py-2.5 text-left text-sm hover:bg-slate-800"
+        >
+          Dashboard
+        </button>
+
+        <button
+          onClick={() => {
+            logout();
+            setShowAdmin(false);
+            navigate("/");
+          }}
+          className="block w-full px-4 py-2.5 text-left text-sm text-red-400 hover:bg-slate-800"
+        >
+          Logout
+        </button>
+      </div>
+    )}
+  </div>
+)}
+
         </div>
       </div>
     </header>

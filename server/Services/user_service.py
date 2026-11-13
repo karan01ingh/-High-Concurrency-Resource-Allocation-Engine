@@ -97,6 +97,7 @@ async def update_user_service(user_id, user_data):
         )
 
 
+
 async def signup_service(user_data):
     try:
         if not user_data:
@@ -105,6 +106,7 @@ async def signup_service(user_data):
                 message="User data is missing",
                 additional_response={"error": "Please provide User data"},
             )
+
         if (
             not user_data.get("username")
             or not user_data.get("role")
@@ -115,21 +117,26 @@ async def signup_service(user_data):
             return custom_response(
                 status_code=404,
                 message="Mandatory Fields are missing",
-                additional_response={"error": " Please provide all mandatory fields"},
+                additional_response={"error": "Please provide all mandatory fields"},
             )
 
-        if user_data.get("role") not in ("admin", "user", "organizer"):
+        if user_data.get("role") not in ("user", "organizer"):
             return custom_response(
                 status_code=400,
                 message="Invalid Role",
                 additional_response={"error": "Invalid Role"},
             )
-        if not re.fullmatch(r"^[^@\s]+@[^@\s]+\.[^@\s]+$", user_data.get("email")):
+
+        if not re.fullmatch(
+            r"^[^@\s]+@[^@\s]+\.[^@\s]+$",
+            user_data.get("email")
+        ):
             return custom_response(
                 status_code=400,
                 message="Invalid email",
                 additional_response={"error": "Please provide a valid email address"},
             )
+
         if not re.fullmatch(r"[6-9]\d{9}", user_data.get("phonecontact")):
             return custom_response(
                 status_code=400,
@@ -138,17 +145,19 @@ async def signup_service(user_data):
                     "error": "Please provide a valid 10-digit Indian mobile number"
                 },
             )
-        if len(user_data.get("password")) < 8:
+
+        password = user_data.get("password")
+
+        if len(password) < 8:
             return custom_response(
                 status_code=400,
-                message="Password length is smaller then 8 ",
+                message="Password length is smaller then 8",
                 additional_response={
-                    "error": " Password must be at least 8 characters long"
+                    "error": "Password must be at least 8 characters long"
                 },
             )
-        if not re.search(r"[A-Za-z]", user_data.get("password")) or not re.search(
-            r"\d", user_data.get("password")
-        ):
+
+        if not re.search(r"[A-Za-z]", password) or not re.search(r"\d", password):
             return custom_response(
                 status_code=400,
                 message="Invalid password",
@@ -156,12 +165,19 @@ async def signup_service(user_data):
                     "error": "Password must contain at least one letter and one number"
                 },
             )
-        password = user_data.get("password")
 
         hashed_password = bcrypt.hashpw(
-            password.encode("utf-8"), bcrypt.gensalt()
+            password.encode("utf-8"),
+            bcrypt.gensalt()
         ).decode("utf-8")
-        base_query = f"INSERT INTO users (username,role,email,phonecontact,password) values (%s,%s,%s,%s,%s) RETURNING userid"
+
+        base_query = """
+            INSERT INTO users
+            (username, role, email, phonecontact, password)
+            VALUES (%s, %s, %s, %s, %s)
+            RETURNING userid
+        """
+
         params = (
             user_data.get("username"),
             user_data.get("role"),
@@ -169,14 +185,16 @@ async def signup_service(user_data):
             user_data.get("phonecontact"),
             hashed_password,
         )
+
         result = await db.modify(base_query, params)
+
         if not result:
             return custom_response(
                 status_code=500,
                 message="Internal server error in creating user",
                 additional_response={"error": "Try after sometime"},
             )
-        print(result)
+
         user_id = result[0][0]
 
         access_token = create_access_token({
@@ -184,12 +202,10 @@ async def signup_service(user_data):
             "role": user_data["role"]
         })
 
-        return custom_response(
+        response = custom_response(
             status_code=201,
             message="User created successfully",
             additional_response={
-                "access_token": access_token,
-                "token_type": "bearer",
                 "user": {
                     "userid": user_id,
                     "username": user_data["username"],
@@ -198,6 +214,18 @@ async def signup_service(user_data):
                 }
             }
         )
+
+        response.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=1800,
+            path="/"
+        )
+
+        return response
 
     except psycopg.errors.UniqueViolation:
         traceback.print_exc()
@@ -208,13 +236,14 @@ async def signup_service(user_data):
                 "error": "Email or phone number is already registered"
             },
         )
+
     except Exception as e:
         print("Error in the create user service:", str(e))
         traceback.print_exc()
         return custom_response(
-            status_code=400,
-            message="Internal Error in the create_user_service",
-            additional_response={"Error": str(e)},
+            status_code=500,
+            message="Internal server error",
+            additional_response={"error": "Something went wrong"},
         )
 
 async def signin_service(user_data):
@@ -230,13 +259,14 @@ async def signin_service(user_data):
             )
 
         query = """
-            SELECT userid as userid, username as username, email as email, role as role, password as password
+            SELECT userid, username, email, role, password
             FROM users
             WHERE email = %s
         """
 
         user = await db.get_many(query, (email,))
-        print("user:",user)
+        print("user:", user)
+
         if not user:
             return custom_response(
                 status_code=401,
@@ -261,12 +291,10 @@ async def signin_service(user_data):
             "role": user[0][3]
         })
 
-        return custom_response(
+        result = custom_response(
             status_code=200,
             message="Login successful",
             additional_response={
-                "access_token": access_token,
-                "token_type": "bearer",
                 "user": {
                     "userid": user[0][0],
                     "username": user[0][1],
@@ -276,9 +304,23 @@ async def signin_service(user_data):
             }
         )
 
+        # Set HttpOnly cookie
+        result.set_cookie(
+            key="access_token",
+            value=access_token,
+            httponly=True,
+            secure=False,
+            samesite="lax",
+            max_age=1800,
+            path="/"
+        )
+
+        return result
+
     except Exception as e:
         print("Signin error:", str(e))
         traceback.print_exc()
+
         return custom_response(
             status_code=500,
             message="Internal server error",

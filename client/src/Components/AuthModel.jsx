@@ -1,9 +1,11 @@
-
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { useToast } from "../Context/ToastContext";
+import { useAuth } from "../Context/AuthContext";
 
 export default function AuthModel({ isOpen, onClose }) {
   const toast = useToast();
+  const navigate = useNavigate();
   const [mode, setMode] = useState("login");
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
@@ -15,7 +17,7 @@ export default function AuthModel({ isOpen, onClose }) {
   const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
+  const { login, closeAuthModal } = useAuth();
   if (!isOpen) return null;
 
   const isLogin = mode === "login";
@@ -62,6 +64,7 @@ export default function AuthModel({ isOpen, onClose }) {
 
       const res = await fetch(endpoint, {
         method: "POST",
+        credentials: "include",
         headers: {
           "Content-Type": "application/json",
         },
@@ -77,10 +80,29 @@ export default function AuthModel({ isOpen, onClose }) {
         return;
       }
 
+      const user = data.additional_response?.user;
+      if (!user) {
+        toast.error("User details not received from server.");
+        return;
+      }
+
+      // Store user details globally
+      login(user);
+
+      // Close the modal
+      closeAuthModal();
+
+      // Redirect according to role
+
       toast.success(data.message || "Request successful.", {
         title: "Success",
       });
-      console.log("request completed")
+
+      if (user.role === "organizer") {
+        navigate("/organizer-dashboard");
+      } else if (user.role === "user") {
+        navigate("/user-dashboard");
+      }
 
     } catch (error) {
       console.log("Error in API callling:",error)

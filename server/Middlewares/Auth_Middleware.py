@@ -98,7 +98,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
                 status_code=401,
                 content={"message": "Invalid access token"}
             )
-
+        print("JWT USER ID:", user_id)
+        print("JWT ROLE:", role)
+        print("REQUEST METHOD:", method)
+        print("REQUEST PATH:", path)
         # Check role permissions
         allowed = any(
             method == allowed_method and re.fullmatch(pattern, path)

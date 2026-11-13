@@ -1,5 +1,6 @@
 
-import { useState } from "react";
+import { Routes, Route, Navigate } from "react-router-dom";
+
 import AuthModel from "./components/AuthModel";
 import Navbar from "./Components/Navbar";
 import Home from "./Pages/Home";
@@ -12,26 +13,35 @@ import MyBookings from "./Pages/My_Bookings";
 import UserDashboard from "./Pages/User_Dashboard";
 import BookingConfirmation from "./Pages/Booking_Confirmation";
 
-export default function App() {
-  const [isOpen, setIsOpen] = useState(true);
+import { useAuth } from "./Context/AuthContext";
 
-  // return (
-  //   <main className="flex min-h-screen items-center justify-center bg-slate-950">
-  //     <button
-  //       onClick={() => setIsOpen(true)}
-  //       className="rounded-xl bg-emerald-700 px-6 py-3 font-semibold text-white hover:bg-emerald-800"
-  //     >
-  //       Login / Sign Up
-  //     </button>
-  //     <AuthModel
-  //       isOpen={isOpen}
-  //       onClose={() => setIsOpen(false)}
-  //     />
-  //   </main>
-  // );
+export default function App() {
+  const { isAuthModalOpen, closeAuthModal } = useAuth();
+
   return (
     <>
-  <CreateEvent/>
+      <Navbar />
+
+      <Routes>
+        <Route path="/" element={<Home />} />
+
+        <Route path="/user-dashboard" element={<UserDashboard />} />
+        <Route path="/organizer-dashboard" element={<OrganizerDashboard />} />
+
+        <Route path="/create-event" element={<CreateEvent />} />
+        <Route path="/profile" element={<Profile />} />
+        <Route path="/booking-payment" element={<BookingPayment />} />
+        <Route path="/my-events" element={<MyEvents />} />
+        <Route path="/my-bookings" element={<MyBookings />} />
+        <Route path="/booking-confirmation" element={<BookingConfirmation />} />
+
+        <Route path="*" element={<Navigate to="/" replace />} />
+      </Routes>
+
+      <AuthModel
+        isOpen={isAuthModalOpen}
+        onClose={closeAuthModal}
+      />
     </>
-  )
+  );
 }
